@@ -1,1 +1,10 @@
-/build
+# Built application files
+*.apk
+*.aab
+
+# Generated files
+build/
+out/
+
+# Local configuration
+local.properties
