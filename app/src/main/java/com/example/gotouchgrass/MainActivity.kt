@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import com.example.gotouchgrass.ui.screens.AuthScreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 
 class MainActivity : ComponentActivity() {
@@ -40,30 +41,47 @@ class MainActivity : ComponentActivity() {
 @PreviewScreenSizes
 @Composable
 fun GoTouchGrassApp() {
+    var isAuthenticated by rememberSaveable { mutableStateOf(false) }
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
 
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            AppDestinations.entries.forEach {
-                item(
-                    icon = {
-                        Icon(
-                            it.icon,
-                            contentDescription = it.label
-                        )
-                    },
-                    label = { Text(it.label) },
-                    selected = it == currentDestination,
-                    onClick = { currentDestination = it }
+    if (!isAuthenticated) {
+        AuthScreen(
+            onSignIn = { email, password ->
+                // TODO: Implement actual authentication
+                isAuthenticated = true
+            },
+            onSignUp = { username, email, password ->
+                // TODO: Implement actual sign up
+                isAuthenticated = true
+            },
+            onForgotPassword = {
+                // TODO: Implement forgot password
+            }
+        )
+    } else {
+        NavigationSuiteScaffold(
+            navigationSuiteItems = {
+                AppDestinations.entries.forEach {
+                    item(
+                        icon = {
+                            Icon(
+                                it.icon,
+                                contentDescription = it.label
+                            )
+                        },
+                        label = { Text(it.label) },
+                        selected = it == currentDestination,
+                        onClick = { currentDestination = it }
+                    )
+                }
+            }
+        ) {
+            Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Greeting(
+                    name = "Android",
+                    modifier = Modifier.padding(innerPadding)
                 )
             }
-        }
-    ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting(
-                name = "Android",
-                modifier = Modifier.padding(innerPadding)
-            )
         }
     }
 }
