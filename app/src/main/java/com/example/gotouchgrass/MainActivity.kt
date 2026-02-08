@@ -29,6 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import com.example.gotouchgrass.ui.explore.ExploreScreen
 import com.example.gotouchgrass.ui.explore.ExploreViewModel
+import com.example.gotouchgrass.ui.screens.AuthScreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 
 import com.example.gotouchgrass.ui.search.SearchScreen
@@ -61,36 +62,53 @@ fun GoTouchGrassAppPreview() {
 
 @Composable
 fun GoTouchGrassApp() {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.SEARCH) }
+    var isAuthenticated by rememberSaveable { mutableStateOf(false) }
+    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.MAP) }
 
     val searchViewModel = remember { SearchViewModel() }
     val exploreViewModel = remember { ExploreViewModel() }
 
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            AppDestinations.entries.forEach {
-                item(
-                    icon = {
-                        Icon(
-                            it.icon,
-                            contentDescription = it.label
-                        )
-                    },
-                    label = { Text(it.label) },
-                    selected = it == currentDestination,
-                    onClick = { currentDestination = it }
-                )
+    if (!isAuthenticated) {
+        AuthScreen(
+            onSignIn = { email, password ->
+                // TODO: Implement actual authentication
+                isAuthenticated = true
+            },
+            onSignUp = { username, email, password ->
+                // TODO: Implement actual sign up
+                isAuthenticated = true
+            },
+            onForgotPassword = {
+                // TODO: Implement forgot password
             }
-        }
-    ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Box(Modifier.padding(innerPadding)) {
-                when (currentDestination) {
-                    AppDestinations.SEARCH -> SearchScreen(viewModel = searchViewModel)
-                    AppDestinations.EXPLORE -> ExploreScreen(viewModel = exploreViewModel)
-                    AppDestinations.STATS -> Text("Stats TODO")
-                    AppDestinations.PROFILE -> Text("Profile TODO")
-                    AppDestinations.MAP -> Text("Map TODO")
+        )
+    } else {
+        NavigationSuiteScaffold(
+            navigationSuiteItems = {
+                AppDestinations.entries.forEach {
+                    item(
+                        icon = {
+                            Icon(
+                                it.icon,
+                                contentDescription = it.label
+                            )
+                        },
+                        label = { Text(it.label) },
+                        selected = it == currentDestination,
+                        onClick = { currentDestination = it }
+                    )
+                }
+            }
+        ) {
+            Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Box(Modifier.padding(innerPadding)) {
+                    when (currentDestination) {
+                        AppDestinations.SEARCH -> SearchScreen(viewModel = searchViewModel)
+                        AppDestinations.EXPLORE -> ExploreScreen(viewModel = exploreViewModel)
+                        AppDestinations.STATS -> Text("Stats TODO")
+                        AppDestinations.PROFILE -> Text("Profile TODO")
+                        AppDestinations.MAP -> Text("Map TODO")
+                    }
                 }
             }
         }
