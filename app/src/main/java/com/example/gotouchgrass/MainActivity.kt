@@ -27,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import com.example.gotouchgrass.ui.explore.ExploreScreen
+import com.example.gotouchgrass.ui.explore.ExploreViewModel
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 
 import com.example.gotouchgrass.ui.search.SearchScreen
@@ -62,6 +64,7 @@ fun GoTouchGrassApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.SEARCH) }
 
     val searchViewModel = remember { SearchViewModel() }
+    val exploreViewModel = remember { ExploreViewModel() }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -84,7 +87,7 @@ fun GoTouchGrassApp() {
             Box(Modifier.padding(innerPadding)) {
                 when (currentDestination) {
                     AppDestinations.SEARCH -> SearchScreen(viewModel = searchViewModel)
-                    AppDestinations.EXPLORE -> Text("Explore TODO")
+                    AppDestinations.EXPLORE -> ExploreScreen(viewModel = exploreViewModel)
                     AppDestinations.STATS -> Text("Stats TODO")
                     AppDestinations.PROFILE -> Text("Profile TODO")
                     AppDestinations.MAP -> Text("Map TODO")
