@@ -30,6 +30,7 @@ import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import com.example.gotouchgrass.ui.explore.ExploreScreen
 import com.example.gotouchgrass.ui.explore.ExploreViewModel
 import com.example.gotouchgrass.ui.screens.AuthScreen
+import com.example.gotouchgrass.ui.screens.ProfileScreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 
 import com.example.gotouchgrass.ui.search.SearchScreen
