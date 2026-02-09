@@ -26,15 +26,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import com.example.gotouchgrass.ui.explore.ExploreScreen
 import com.example.gotouchgrass.ui.explore.ExploreViewModel
 import com.example.gotouchgrass.ui.screens.AuthScreen
-import com.example.gotouchgrass.ui.screens.ProfileScreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 
 import com.example.gotouchgrass.ui.search.SearchScreen
 import com.example.gotouchgrass.ui.search.SearchViewModel
+import com.example.gotouchgrass.ui.stats.StatsScreen
+import com.example.gotouchgrass.ui.stats.StatsViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,6 +68,7 @@ fun GoTouchGrassApp() {
 
     val searchViewModel = remember { SearchViewModel() }
     val exploreViewModel = remember { ExploreViewModel() }
+    val statsViewModel = remember { StatsViewModel() }
 
     if (!isAuthenticated) {
         AuthScreen(
@@ -106,8 +107,8 @@ fun GoTouchGrassApp() {
                     when (currentDestination) {
                         AppDestinations.SEARCH -> SearchScreen(viewModel = searchViewModel)
                         AppDestinations.EXPLORE -> ExploreScreen(viewModel = exploreViewModel)
-                        AppDestinations.STATS -> Text("Stats TODO")
-                        AppDestinations.PROFILE -> ProfileScreen()
+                        AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
+                        AppDestinations.PROFILE -> Text("Profile TODO")
                         AppDestinations.MAP -> Text("Map TODO")
                     }
                 }
@@ -131,7 +132,7 @@ enum class AppDestinations(
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     Text(
-        text = "Hello $name!",
+        text = "Gotouchgrass",
         modifier = modifier
     )
 }
