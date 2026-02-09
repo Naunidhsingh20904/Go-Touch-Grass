@@ -22,7 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -37,22 +36,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun StatsScreen(modifier: Modifier = Modifier) {
+fun StatsScreen(
+    modifier: Modifier = Modifier,
+    viewModel: StatsViewModel = viewModel()
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())  // ← Add this!
-            .padding(16.dp),
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Topbar()
-        WeeklySummaryCard()
-        CurrentStreak()
-        LifetimeStatsCard()
-        GlobalLeaderboard()
-
+        WeeklySummaryCard(viewModel)
+        CurrentStreak(viewModel)
+        LifetimeStatsCard(viewModel)
+        GlobalLeaderboard(viewModel)
     }
 }
 
@@ -87,11 +89,10 @@ fun Topbar(modifier: Modifier = Modifier) {
             Text("This week")
         }
     }
-
 }
 
 @Composable
-fun WeeklySummaryCard() {
+fun WeeklySummaryCard(viewModel: StatsViewModel) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -105,7 +106,6 @@ fun WeeklySummaryCard() {
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Title with icon
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -123,18 +123,16 @@ fun WeeklySummaryCard() {
                 )
             }
 
-            // Stats Row - evenly distributed
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Stat 1: Time Outside
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "19.3h",
+                        text = viewModel.timeOutside,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -146,13 +144,12 @@ fun WeeklySummaryCard() {
                     )
                 }
 
-                // Stat 2: Zones Visited
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "28",
+                        text = viewModel.zonesVisited,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -164,16 +161,15 @@ fun WeeklySummaryCard() {
                     )
                 }
 
-                // Stat 3: XP Earned
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "+2,450",
+                        text = viewModel.xpEarned,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF4CAF50)  // Green
+                        color = Color(0xFF4CAF50)
                     )
                     Text(
                         text = "XP Earned",
@@ -184,11 +180,9 @@ fun WeeklySummaryCard() {
                 }
             }
 
-            // Weekly Chart
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Bars
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
@@ -259,7 +253,6 @@ fun WeeklySummaryCard() {
                     )
                 }
 
-                // Day labels
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
@@ -320,12 +313,15 @@ fun WeeklySummaryCard() {
 }
 
 @Composable
-fun CurrentStreak(modifier: Modifier = Modifier) {
+fun CurrentStreak(
+    viewModel: StatsViewModel,  // ← ADDED parameter
+    modifier: Modifier = Modifier
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSurface  // Changed to beige color
+            contentColor = MaterialTheme.colorScheme.onSurface
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 2.dp
@@ -336,22 +332,22 @@ fun CurrentStreak(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),  // Added comma
-                horizontalArrangement = Arrangement.spacedBy(8.dp)  // Changed from start
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "🔥",  // Changed to emoji (Icons.Default.fire doesn't exist)
+                    text = "🔥",
                     fontSize = 24.sp
                 )
                 Text(
-                    text = "Current Streak",  // Fixed typo: "Stats" → "Streak"
-                    style = MaterialTheme.typography.titleMedium,  // Changed from titleLarge
+                    text = "Current Streak",
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
             }
 
             Text(
-                text = "7 Days",
+                text = viewModel.currentStreak,
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold
             )
@@ -366,21 +362,23 @@ fun CurrentStreak(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun LifetimeStatsCard(modifier: Modifier = Modifier) {
+fun LifetimeStatsCard(
+    viewModel: StatsViewModel,
+    modifier: Modifier = Modifier
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface  // Changed to surface
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 2.dp
         )
     ) {
-        Column(  // Changed Row to Column (to stack everything vertically)
-            modifier = Modifier.padding(24.dp),  // Added padding
-            verticalArrangement = Arrangement.spacedBy(16.dp)  // Added spacing
+        Column(
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Title Row
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -393,25 +391,23 @@ fun LifetimeStatsCard(modifier: Modifier = Modifier) {
                 )
                 Text(
                     text = "Lifetime Stats",
-                    style = MaterialTheme.typography.titleLarge,  // Changed to titleLarge
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold
                 )
             }
 
-            // First Row of stats
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Box 1: Total XP
                 Card(
-                    modifier = Modifier.weight(1f),  // Added Card wrapper
+                    modifier = Modifier.weight(1f),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
                     )
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),  // Added padding
+                        modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
@@ -420,14 +416,13 @@ fun LifetimeStatsCard(modifier: Modifier = Modifier) {
                             color = Color.Gray
                         )
                         Text(
-                            text = "12,450",
+                            text = viewModel.totalXP,  // ← CHANGED to viewModel
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
-                // Box 2: Coins Earned
                 Card(
                     modifier = Modifier.weight(1f),
                     colors = CardDefaults.cardColors(
@@ -444,7 +439,7 @@ fun LifetimeStatsCard(modifier: Modifier = Modifier) {
                             color = Color.Gray
                         )
                         Text(
-                            text = "2,340",
+                            text = viewModel.coinsEarned,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -452,12 +447,10 @@ fun LifetimeStatsCard(modifier: Modifier = Modifier) {
                 }
             }
 
-            // Second Row of stats
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Box 3: Total Distance
                 Card(
                     modifier = Modifier.weight(1f),
                     colors = CardDefaults.cardColors(
@@ -474,14 +467,13 @@ fun LifetimeStatsCard(modifier: Modifier = Modifier) {
                             color = Color.Gray
                         )
                         Text(
-                            text = "127 km",
+                            text = viewModel.totalDistance,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
-                // Box 4: Cities Explored
                 Card(
                     modifier = Modifier.weight(1f),
                     colors = CardDefaults.cardColors(
@@ -498,7 +490,7 @@ fun LifetimeStatsCard(modifier: Modifier = Modifier) {
                             color = Color.Gray
                         )
                         Text(
-                            text = "3",
+                            text = viewModel.citiesExplored,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -508,8 +500,12 @@ fun LifetimeStatsCard(modifier: Modifier = Modifier) {
         }
     }
 }
+
 @Composable
-fun GlobalLeaderboard(modifier: Modifier = Modifier) {
+fun GlobalLeaderboard(
+    viewModel: StatsViewModel,  // ← ADDED parameter
+    modifier: Modifier = Modifier
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -557,10 +553,16 @@ fun GlobalLeaderboard(modifier: Modifier = Modifier) {
                 }
             }
 
-            LeaderboardEntry("1", "WorldExplorer", "Level 42", "125,000 XP", true)
-            LeaderboardEntry("2", "CityNomad", "Level 38", "98,500 XP", false)
-            LeaderboardEntry("3", "AdventureSeeker", "Level 35", "87,200 XP", false)
-            LeaderboardEntry("142", "You", "Level 8", "12,450 XP", false)
+            // ← CHANGED to loop through viewModel data
+            viewModel.leaderboardEntries.forEach { entry ->
+                LeaderboardEntry(
+                    rank = entry.rank,
+                    name = entry.name,
+                    level = entry.level,
+                    xp = entry.xp,
+                    isGoldRank = entry.isGoldRank
+                )
+            }
         }
     }
 }
@@ -630,7 +632,6 @@ fun LeaderboardEntry(
         }
     }
 }
-
 
 @Preview(showBackground = true)
 @Composable
