@@ -34,6 +34,7 @@ import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 
 import com.example.gotouchgrass.ui.search.SearchScreen
 import com.example.gotouchgrass.ui.search.SearchViewModel
+import com.example.gotouchgrass.ui.stats.StatsScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,7 +106,7 @@ fun GoTouchGrassApp() {
                     when (currentDestination) {
                         AppDestinations.SEARCH -> SearchScreen(viewModel = searchViewModel)
                         AppDestinations.EXPLORE -> ExploreScreen(viewModel = exploreViewModel)
-                        AppDestinations.STATS -> Text("Stats TODO")
+                        AppDestinations.STATS -> StatsScreen(Modifier.padding(innerPadding) )
                         AppDestinations.PROFILE -> Text("Profile TODO")
                         AppDestinations.MAP -> Text("Map TODO")
                     }
