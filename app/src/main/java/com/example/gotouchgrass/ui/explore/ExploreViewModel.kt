@@ -57,6 +57,9 @@ data class ChallengeCardData(
 )
 
 class ExploreViewModel : ViewModel() {
+
+    val totalXP = 3652
+
     val dailyChallenges = listOf(
         ChallengeCardData(
             id = "0123",

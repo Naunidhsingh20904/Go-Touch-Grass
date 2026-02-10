@@ -29,6 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.example.gotouchgrass.ui.explore.ExploreScreen
 import com.example.gotouchgrass.ui.explore.ExploreViewModel
 import com.example.gotouchgrass.ui.screens.AuthScreen
+import com.example.gotouchgrass.ui.screens.ProfileScreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 
 import com.example.gotouchgrass.ui.search.SearchScreen
@@ -108,7 +109,7 @@ fun GoTouchGrassApp() {
                         AppDestinations.SEARCH -> SearchScreen(viewModel = searchViewModel)
                         AppDestinations.EXPLORE -> ExploreScreen(viewModel = exploreViewModel)
                         AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
-                        AppDestinations.PROFILE -> Text("Profile TODO")
+                        AppDestinations.PROFILE -> ProfileScreen()
                         AppDestinations.MAP -> Text("Map TODO")
                     }
                 }
