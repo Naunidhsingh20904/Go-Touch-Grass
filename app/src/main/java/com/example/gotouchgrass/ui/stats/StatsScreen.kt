@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
 
 @Composable
 fun StatsScreen(
@@ -46,15 +47,16 @@ fun StatsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(horizontal = GoTouchGrassDimens.SpacingMd)
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingMd)
     ) {
         Topbar()
         WeeklySummaryCard(viewModel)
         CurrentStreak(viewModel)
         LifetimeStatsCard(viewModel)
         GlobalLeaderboard(viewModel)
+        Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingLg))
     }
 }
 
@@ -63,7 +65,7 @@ fun Topbar(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(top = GoTouchGrassDimens.SpacingMd),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

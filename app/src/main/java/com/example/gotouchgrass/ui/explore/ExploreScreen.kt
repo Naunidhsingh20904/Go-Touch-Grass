@@ -4,35 +4,38 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.gotouchgrass.R
-import com.example.gotouchgrass.ui.explore.ExploreViewModel
-import com.example.gotouchgrass.ui.search.LocationCardData
-import com.example.gotouchgrass.ui.search.color
+import com.example.gotouchgrass.ui.theme.ForestGreen
+import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
+import com.example.gotouchgrass.ui.theme.GoldenYellow
+import com.example.gotouchgrass.ui.theme.GoldenYellowDark
+import com.example.gotouchgrass.ui.theme.SandLight
+import com.example.gotouchgrass.ui.theme.XpBarStart
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,20 +46,59 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
 
     Column(
         modifier = Modifier
-            .padding(16.dp)
+            .padding(horizontal = GoTouchGrassDimens.SpacingMd)
+            .fillMaxSize()
             .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingMd)
     ) {
+        // Header
+        Row(
+            modifier = Modifier
+                .padding(top = GoTouchGrassDimens.SpacingMd)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "Explore", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+
+            Surface(
+                shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
+                color = SandLight
+            ) {
+                Row(
+                    modifier = Modifier.padding(
+                        horizontal = GoTouchGrassDimens.SpacingSm,
+                        vertical = GoTouchGrassDimens.SpacingXs
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingXs)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.star_24),
+                        contentDescription = "XP",
+                        tint = GoldenYellow,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "${viewModel.totalXP} XP",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = ForestGreen
+                    )
+                }
+            }
+        }
+
         // Daily Challenges
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.target_24),
                     contentDescription = "Target",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = ForestGreen,
+                    modifier = Modifier.size(20.dp)
                 )
                 Text(
                     text = "Daily Challenges",
@@ -71,15 +113,16 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
         }
 
         // Weekly Challenges
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.star_24),
                     contentDescription = "Star",
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    tint = GoldenYellow,
+                    modifier = Modifier.size(20.dp)
                 )
                 Text(
                     text = "Weekly Challenges",
@@ -94,15 +137,16 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
         }
 
         // Curated Routes
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.explore_24),
                     contentDescription = "Explore",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = ForestGreen,
+                    modifier = Modifier.size(20.dp)
                 )
                 Text(
                     text = "Curated Routes",
@@ -111,6 +155,8 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
             }
             viewModel.curatedRoutes.forEach { cardData -> RouteCard(card = cardData, onClick = {}) }
         }
+
+        Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingLg))
     }
 }
 
@@ -128,21 +174,23 @@ fun ChallengeCard(
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp),
+                .padding(GoTouchGrassDimens.SpacingMd),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 painter = painterResource(id = card.challengeType.iconRes()),
                 contentDescription = "Challenge Type",
-                tint = MaterialTheme.colorScheme.primary,
+                tint = ForestGreen,
                 modifier = Modifier.size(32.dp)
             )
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(GoTouchGrassDimens.SpacingMd))
 
             // Left side
-            Column(modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingXs)
+            ) {
                 Text(
                     text = card.title,
                     style = MaterialTheme.typography.titleMedium
@@ -154,12 +202,16 @@ fun ChallengeCard(
                 Text(card.progress, style = MaterialTheme.typography.bodySmall)
                 LinearProgressIndicator(
                     progress = { card.progressFraction },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(10.dp),
+                    color = XpBarStart,
+                    trackColor = SandLight,
                     drawStopIndicator = { }
                 )
             }
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(GoTouchGrassDimens.SpacingMd))
 
             Column(
                 horizontalAlignment = Alignment.End,
@@ -168,13 +220,13 @@ fun ChallengeCard(
                 Text(
                     text = "+${card.reward} XP",
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                    color = GoldenYellowDark
                 )
 
                 Spacer(Modifier.height(24.dp))
 
                 Text(
-                    text = "${card.progressFraction * 100}%",
+                    text = "${(card.progressFraction * 100).toInt()}%",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -196,17 +248,17 @@ fun RouteCard(
             .fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(GoTouchGrassDimens.SpacingMd),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 painter = painterResource(id = card.routeType.iconRes()),
                 contentDescription = "Route Type",
-                tint = MaterialTheme.colorScheme.primary,
+                tint = ForestGreen,
                 modifier = Modifier.size(32.dp)
             )
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(GoTouchGrassDimens.SpacingMd))
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -226,7 +278,7 @@ fun RouteCard(
                         Icon(
                             painter = painterResource(id = R.drawable.location_on_24),
                             contentDescription = "Location",
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = ForestGreen,
                             modifier = Modifier.size(14.dp)
                         )
                         Text(
@@ -242,8 +294,8 @@ fun RouteCard(
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.schedule_24),
-                            contentDescription = "Star",
-                            tint = MaterialTheme.colorScheme.primary,
+                            contentDescription = "Clock",
+                            tint = ForestGreen,
                             modifier = Modifier.size(14.dp)
                         )
                         Text(
@@ -253,11 +305,18 @@ fun RouteCard(
                     }
 
                     // Show difficulty
-                    Card() {
+                    Surface(
+                        shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
+                        color = SandLight
+                    ) {
                         Text(
-                            card.difficulty.name,
+                            text = card.difficulty.name,
+                            modifier = Modifier.padding(
+                                horizontal = GoTouchGrassDimens.SpacingSm,
+                                vertical = GoTouchGrassDimens.SpacingXs
+                            ),
                             color = card.difficulty.color(),
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.labelSmall
                         )
                     }
                 }

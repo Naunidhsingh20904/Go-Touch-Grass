@@ -1,6 +1,7 @@
 package com.example.gotouchgrass.ui.search
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -9,11 +10,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 import com.example.gotouchgrass.R
+import com.example.gotouchgrass.ui.theme.ForestGreen
+import com.example.gotouchgrass.ui.theme.GoldenYellow
+import com.example.gotouchgrass.ui.theme.SandLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,8 +28,28 @@ fun SearchScreen(viewModel: SearchViewModel) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(horizontal = GoTouchGrassDimens.SpacingMd)
+                    .padding(
+                        top = GoTouchGrassDimens.SpacingMd,
+                        bottom = GoTouchGrassDimens.SpacingSm
+                    )
             ) {
+
+                // Header (Search + XP)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Search",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingSm))
+
                 SearchBar(
                     inputField = {
                         SearchBarDefaults.InputField(
@@ -34,11 +59,14 @@ fun SearchScreen(viewModel: SearchViewModel) {
                             expanded = false,
                             onExpandedChange = { },
                             placeholder = {
-                                Row() {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.Search,
                                         contentDescription = "Search",
-                                        tint = MaterialTheme.colorScheme.primary,
+                                        tint = ForestGreen
                                     )
                                     Text("Search zones, landmarks, areas…")
                                 }
@@ -51,40 +79,47 @@ fun SearchScreen(viewModel: SearchViewModel) {
                 ) { }
             }
         }
+
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(horizontal = GoTouchGrassDimens.SpacingMd),
+            verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingMd)
         ) {
 
             // Display recent searches
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.history_24),
                         contentDescription = "History",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = ForestGreen,
+                        modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "Recent Searches",
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
                     viewModel.recentSearches.forEach { search ->
-                        Card(onClick = {}) {
+                        Surface(
+                            onClick = { },
+                            shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
+                            color = SandLight
+                        ) {
                             Text(
                                 text = search,
                                 modifier = Modifier.padding(
                                     horizontal = GoTouchGrassDimens.SpacingSm,
                                     vertical = GoTouchGrassDimens.SpacingXs
                                 ),
-                                style = MaterialTheme.typography.labelLarge
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -92,15 +127,16 @@ fun SearchScreen(viewModel: SearchViewModel) {
             }
 
             // Display trending locations
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.trending_up_24),
                         contentDescription = "Trending",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = ForestGreen,
+                        modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "Trending Now",
@@ -115,15 +151,16 @@ fun SearchScreen(viewModel: SearchViewModel) {
             }
 
             // Display nearby locations
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.location_on_24),
                         contentDescription = "Nearby",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = ForestGreen,
+                        modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "Nearby Zones",
@@ -153,25 +190,24 @@ fun LocationCard(
             .fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier
-                .padding(16.dp),
+            modifier = Modifier.padding(GoTouchGrassDimens.SpacingMd),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = Icons.Default.Star,
                 contentDescription = "Location",
-                tint = MaterialTheme.colorScheme.primary,
+                tint = ForestGreen,
                 modifier = Modifier.size(32.dp)
             )
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(GoTouchGrassDimens.SpacingMd))
 
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingXs)) {
                 Text(
                     text = card.title,
                     style = MaterialTheme.typography.titleMedium
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
                     Text(
                         text = card.description,
                         style = MaterialTheme.typography.bodyMedium
