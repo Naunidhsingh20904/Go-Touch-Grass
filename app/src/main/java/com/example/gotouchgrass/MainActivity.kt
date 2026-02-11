@@ -12,7 +12,6 @@ import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -70,6 +69,7 @@ fun GoTouchGrassAppPreview() {
 fun GoTouchGrassApp() {
     var isAuthenticated by rememberSaveable { mutableStateOf(false) }
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.MAP) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
 
     val searchViewModel = remember { SearchViewModel() }
     val exploreViewModel = remember { ExploreViewModel() }
@@ -91,35 +91,45 @@ fun GoTouchGrassApp() {
             }
         )
     } else {
-        NavigationSuiteScaffold(
-            navigationSuiteItems = {
-                AppDestinations.entries.forEach {
-                    item(
-                        icon = {
-                            Icon(
-                                it.icon,
-                                contentDescription = it.label
-                            )
-                        },
-                        label = { Text(it.label) },
-                        selected = it == currentDestination,
-                        onClick = { currentDestination = it }
+        if (showSettings) {
+            // Settings screen is accessed from Profile, not from bottom navigation
+            Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Box(Modifier.padding(innerPadding)) {
+                    SettingsScreen(
+                        viewModel = settingsViewModel,
+                        onBackClick = { showSettings = false }
                     )
                 }
             }
-        ) {
-            Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                Box(Modifier.padding(innerPadding)) {
-                    when (currentDestination) {
-                        AppDestinations.SEARCH -> SearchScreen(viewModel = searchViewModel)
-                        AppDestinations.EXPLORE -> ExploreScreen(viewModel = exploreViewModel)
-                        AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
-                        AppDestinations.PROFILE -> ProfileScreen()
-                        AppDestinations.MAP -> MapScreen()
-                        AppDestinations.SETTINGS -> SettingsScreen(
-                            viewModel = settingsViewModel,
-                            onBackClick = { currentDestination = AppDestinations.PROFILE }
+        } else {
+            NavigationSuiteScaffold(
+                navigationSuiteItems = {
+                    AppDestinations.entries.forEach {
+                        item(
+                            icon = {
+                                Icon(
+                                    it.icon,
+                                    contentDescription = it.label
+                                )
+                            },
+                            label = { Text(it.label) },
+                            selected = it == currentDestination,
+                            onClick = { currentDestination = it }
                         )
+                    }
+                }
+            ) {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    Box(Modifier.padding(innerPadding)) {
+                        when (currentDestination) {
+                            AppDestinations.SEARCH -> SearchScreen(viewModel = searchViewModel)
+                            AppDestinations.EXPLORE -> ExploreScreen(viewModel = exploreViewModel)
+                            AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
+                            AppDestinations.PROFILE -> ProfileScreen(
+                                onSettingsClick = { showSettings = true }
+                            )
+                            AppDestinations.MAP -> MapScreen()
+                        }
                     }
                 }
             }
@@ -136,8 +146,7 @@ enum class AppDestinations(
     EXPLORE("Explore", Icons.Default.LocationOn),
     SEARCH("Search", Icons.Default.Search),
     STATS("Stats", Icons.Default.Share),
-    PROFILE("Profile", Icons.Default.Face),
-    SETTINGS("Settings", Icons.Default.Settings)
+    PROFILE("Profile", Icons.Default.Face)
 }
 
 @Composable
