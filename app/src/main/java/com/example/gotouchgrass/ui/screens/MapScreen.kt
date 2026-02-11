@@ -265,7 +265,7 @@ private fun BottomHub() {
 
         Surface(
             shape = RoundedCornerShape(40.dp),
-            color = Color(0xFF7C3AED),
+            color = ForestGreen,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 40.dp)
@@ -363,12 +363,12 @@ private fun ZonePopup(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.Red)
+                        .background(ForestGreen)
                         .padding(8.dp)
                 ) {
                     Text(
                         text = zone.title,
-                        color = Color.Black,
+                        color = WarmWhite,
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
@@ -395,7 +395,8 @@ private fun ZonePopup(
                 LinearProgressIndicator(
                     progress = zone.currentScore.toFloat() / zone.maxScore.toFloat(),
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color.Red
+                    color = ForestGreen,
+                    trackColor = SandLight
                 )
 
                 Text(
