@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -34,6 +35,8 @@ import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 
 import com.example.gotouchgrass.ui.search.SearchScreen
 import com.example.gotouchgrass.ui.search.SearchViewModel
+import com.example.gotouchgrass.ui.settings.SettingsScreen
+import com.example.gotouchgrass.ui.settings.SettingsViewModel
 import com.example.gotouchgrass.ui.stats.StatsScreen
 import com.example.gotouchgrass.ui.stats.StatsViewModel
 
@@ -70,6 +73,7 @@ fun GoTouchGrassApp() {
     val searchViewModel = remember { SearchViewModel() }
     val exploreViewModel = remember { ExploreViewModel() }
     val statsViewModel = remember { StatsViewModel() }
+    val settingsViewModel = remember { SettingsViewModel() }
 
     if (!isAuthenticated) {
         AuthScreen(
@@ -111,6 +115,10 @@ fun GoTouchGrassApp() {
                         AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
                         AppDestinations.PROFILE -> ProfileScreen()
                         AppDestinations.MAP -> Text("Map TODO")
+                        AppDestinations.SETTINGS -> SettingsScreen(
+                            viewModel = settingsViewModel,
+                            onBackClick = { currentDestination = AppDestinations.PROFILE }
+                        )
                     }
                 }
             }
@@ -128,6 +136,7 @@ enum class AppDestinations(
     SEARCH("Search", Icons.Default.Search),
     STATS("Stats", Icons.Default.Share),
     PROFILE("Profile", Icons.Default.Face),
+    SETTINGS("Settings", Icons.Default.Settings)
 }
 
 @Composable
