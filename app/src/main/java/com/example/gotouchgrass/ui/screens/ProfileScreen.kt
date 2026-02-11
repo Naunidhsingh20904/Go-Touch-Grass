@@ -220,7 +220,8 @@ private fun ProfileOverviewCard(
                         .height(10.dp)
                         .clip(RoundedCornerShape(GoTouchGrassDimens.RadiusFull)),
                     color = ForestGreen,
-                    trackColor = SandLight
+                    trackColor = SandLight,
+                    drawStopIndicator = {}
                 )
 
                 Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingXs))
