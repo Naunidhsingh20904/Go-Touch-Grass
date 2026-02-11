@@ -31,6 +31,7 @@ import com.example.gotouchgrass.ui.explore.ExploreScreen
 import com.example.gotouchgrass.ui.explore.ExploreViewModel
 import com.example.gotouchgrass.ui.screens.AuthScreen
 import com.example.gotouchgrass.ui.screens.ProfileScreen
+import com.example.gotouchgrass.ui.screens.MapScreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 
 import com.example.gotouchgrass.ui.search.SearchScreen
@@ -114,7 +115,7 @@ fun GoTouchGrassApp() {
                         AppDestinations.EXPLORE -> ExploreScreen(viewModel = exploreViewModel)
                         AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
                         AppDestinations.PROFILE -> ProfileScreen()
-                        AppDestinations.MAP -> Text("Map TODO")
+                        AppDestinations.MAP -> MapScreen()
                         AppDestinations.SETTINGS -> SettingsScreen(
                             viewModel = settingsViewModel,
                             onBackClick = { currentDestination = AppDestinations.PROFILE }
