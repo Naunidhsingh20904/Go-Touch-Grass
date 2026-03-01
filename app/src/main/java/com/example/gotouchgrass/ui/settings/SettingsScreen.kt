@@ -46,17 +46,23 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Default.Notifications,
                 title = viewModel.notificationsTitle,
-                showSwitch = true
+                showSwitch = true,
+                switchChecked = viewModel.preferences.notificationsEnabled,
+                onSwitchChange = { viewModel.updatePreferences(viewModel.preferences.copy(notificationsEnabled = it)) }
             )
             SettingsItem(
                 icon = Icons.Default.VolumeUp,
                 title = viewModel.soundEffectsTitle,
-                showSwitch = true
+                showSwitch = true,
+                switchChecked = viewModel.preferences.soundEffectsEnabled,
+                onSwitchChange = { viewModel.updatePreferences(viewModel.preferences.copy(soundEffectsEnabled = it)) }
             )
             SettingsItem(
                 icon = Icons.Default.DarkMode,
                 title = viewModel.darkModeTitle,
-                showSwitch = true
+                showSwitch = true,
+                switchChecked = viewModel.preferences.darkModeEnabled,
+                onSwitchChange = { viewModel.updatePreferences(viewModel.preferences.copy(darkModeEnabled = it)) }
             )
         }
 
@@ -67,7 +73,9 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Default.LocationOn,
                 title = viewModel.locationServicesTitle,
-                showSwitch = true
+                showSwitch = true,
+                switchChecked = viewModel.preferences.locationServicesEnabled,
+                onSwitchChange = { viewModel.updatePreferences(viewModel.preferences.copy(locationServicesEnabled = it)) }
             )
             SettingsItem(
                 icon = Icons.Default.Shield,
@@ -175,7 +183,9 @@ fun SettingsItem(
     icon: ImageVector,
     title: String,
     showArrow: Boolean = false,
-    showSwitch: Boolean = false
+    showSwitch: Boolean = false,
+    switchChecked: Boolean = false,
+    onSwitchChange: (Boolean) -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -221,7 +231,7 @@ fun SettingsItem(
                 )
             }
             showSwitch -> {
-                Switch(checked = true, onCheckedChange = {})
+                Switch(checked = switchChecked, onCheckedChange = onSwitchChange)
             }
         }
     }

@@ -1,8 +1,25 @@
 package com.example.gotouchgrass.ui.settings
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 
 class SettingsViewModel : ViewModel() {
+
+    var preferences by mutableStateOf(
+        UserPreferences(
+            notificationsEnabled = true,
+            soundEffectsEnabled = true,
+            darkModeEnabled = false,
+            locationServicesEnabled = true
+        )
+    )
+        private set
+
+    fun updatePreferences(updated: UserPreferences) {
+        preferences = updated
+    }
 
     // Account Settings - Simple string data
     val editProfileTitle = "Edit Profile"

@@ -1,8 +1,8 @@
     package com.example.gotouchgrass.ui.settings
 
 data class UserPreferences(
-    val notificationsEnabled: Boolean,
-    val soundEffectsEnabled: Boolean,
-    val darkModeEnabled: Boolean,
-    val locationServicesEnabled: Boolean
+    var notificationsEnabled: Boolean,
+    var soundEffectsEnabled: Boolean,
+    var darkModeEnabled: Boolean,
+    var locationServicesEnabled: Boolean
 )
