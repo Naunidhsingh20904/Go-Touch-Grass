@@ -31,3 +31,4 @@ data class LeaderboardData(
     val xp: String,
     val isGoldRank: Boolean
 )
+
