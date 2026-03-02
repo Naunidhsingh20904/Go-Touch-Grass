@@ -1,14 +1,21 @@
 package com.example.gotouchgrass.ui.search
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -16,13 +23,32 @@ import androidx.compose.ui.unit.dp
 import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 import com.example.gotouchgrass.R
+import com.google.android.gms.location.LocationServices
+import androidx.core.content.ContextCompat
 import com.example.gotouchgrass.ui.theme.ForestGreen
-import com.example.gotouchgrass.ui.theme.GoldenYellow
 import com.example.gotouchgrass.ui.theme.SandLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(viewModel: SearchViewModel) {
+    val context = LocalContext.current
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+
+    LaunchedEffect(viewModel, context) {
+        val hasFineLocationPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasFineLocationPermission) {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    viewModel.updateCurrentLocation(location.latitude, location.longitude)
+                }
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             Column(
@@ -81,96 +107,131 @@ fun SearchScreen(viewModel: SearchViewModel) {
         }
 
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
                 .padding(horizontal = GoTouchGrassDimens.SpacingMd),
-            verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingMd)
+            verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingMd),
+            contentPadding = PaddingValues(bottom = GoTouchGrassDimens.SpacingMd)
         ) {
+            val isQueryActive = viewModel.query.isNotBlank()
 
-            // Display recent searches
-            Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.history_24),
-                        contentDescription = "History",
-                        tint = ForestGreen,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = "Recent Searches",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
-                    viewModel.recentSearches.forEach { search ->
-                        Surface(
-                            onClick = { },
-                            shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
-                            color = SandLight
-                        ) {
-                            Text(
-                                text = search,
-                                modifier = Modifier.padding(
-                                    horizontal = GoTouchGrassDimens.SpacingSm,
-                                    vertical = GoTouchGrassDimens.SpacingXs
-                                ),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+            if (viewModel.isSearching) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator()
                     }
                 }
             }
 
-            // Display trending locations
-            Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.trending_up_24),
-                        contentDescription = "Trending",
-                        tint = ForestGreen,
-                        modifier = Modifier.size(20.dp)
-                    )
+            viewModel.searchError?.let { error ->
+                item {
                     Text(
-                        text = "Trending Now",
-                        style = MaterialTheme.typography.titleMedium
+                        text = error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
                     )
-                }
-                viewModel.trendingLocations.forEach { cardData ->
-                    LocationCard(
-                        card = cardData,
-                        onClick = {})
                 }
             }
 
-            // Display nearby locations
-            Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.location_on_24),
-                        contentDescription = "Nearby",
-                        tint = ForestGreen,
-                        modifier = Modifier.size(20.dp)
-                    )
+            if (viewModel.searchResults.isNotEmpty()) {
+                item {
                     Text(
-                        text = "Nearby Zones",
+                        text = "Search Results",
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
-                viewModel.nearbyLocations.forEach { cardData ->
-                    LocationCard(
-                        card = cardData,
-                        onClick = {})
+                items(
+                    items = viewModel.searchResults,
+                    key = { it.id }
+                ) { cardData ->
+                    LocationCard(card = cardData, onClick = {})
+                }
+            }
+
+            if (!isQueryActive) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.history_24),
+                                contentDescription = "History",
+                                tint = ForestGreen,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Recent Searches",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
+                            viewModel.recentSearches.forEach { search ->
+                                Surface(
+                                    onClick = { viewModel.onQueryChange(search) },
+                                    shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
+                                    color = SandLight
+                                ) {
+                                    Text(
+                                        text = search,
+                                        modifier = Modifier.padding(
+                                            horizontal = GoTouchGrassDimens.SpacingSm,
+                                            vertical = GoTouchGrassDimens.SpacingXs
+                                        ),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.trending_up_24),
+                            contentDescription = "Trending",
+                            tint = ForestGreen,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Trending Now",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+                items(viewModel.trendingLocations, key = { it.id }) { cardData ->
+                    LocationCard(card = cardData, onClick = {})
+                }
+
+                item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.location_on_24),
+                            contentDescription = "Nearby",
+                            tint = ForestGreen,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Nearby Zones",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+                items(viewModel.nearbyLocations, key = { it.id }) { cardData ->
+                    LocationCard(card = cardData, onClick = {})
                 }
             }
         }
