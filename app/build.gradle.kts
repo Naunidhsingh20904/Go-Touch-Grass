@@ -1,7 +1,20 @@
+import java.util.Properties
+import java.io.File
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+val appProperties = Properties()
+val appPropertiesFile = File(rootProject.rootDir, "app.properties")
+
+if (appPropertiesFile.exists()) {
+    appProperties.load(appPropertiesFile.inputStream())
+}
+
+val mapsApiKey = appProperties.getProperty("MAPS_API_KEY")
+    ?: error("MAPS_API_KEY not found in app.properties")
 
 android {
     namespace = "com.example.gotouchgrass"
@@ -17,6 +30,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        manifestPlaceholders["googleMapsKey"] = mapsApiKey
+        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
     }
 
     buildTypes {
@@ -34,10 +50,12 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
 dependencies {
+    implementation("androidx.appcompat:appcompat:1.7.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -51,6 +69,9 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation(libs.androidx.compose.ui.text)
+    implementation("com.google.maps.android:maps-compose:4.3.0")
+    implementation("com.google.android.libraries.places:places:3.5.0")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
