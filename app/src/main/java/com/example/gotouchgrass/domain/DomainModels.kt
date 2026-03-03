@@ -438,3 +438,41 @@ data class ApproxPresence(
     val lastUpdatedAtIso: String
 )
 
+// 11) UI data models — Settings
+
+data class UserPreferences(
+    var notificationsEnabled: Boolean,
+    var soundEffectsEnabled: Boolean,
+    var darkModeEnabled: Boolean,
+    var locationServicesEnabled: Boolean
+)
+
+// 12) UI data models — Stats
+
+data class WeeklySummary(
+    val timeOutside: String,
+    val zonesVisited: Int,
+    val xpEarned: Int,
+    val dailyActivity: List<Float>
+)
+
+data class StreakData(
+    val currentDays: Int,
+    val bestDays: Int
+)
+
+data class LifetimeStats(
+    val totalXp: Int,
+    val coinsEarned: Int,
+    val totalDistanceKm: Float,
+    val citiesExplored: Int
+)
+
+data class LeaderboardData(
+    val rank: String,
+    val name: String,
+    val level: String,
+    val xp: String,
+    val isGoldRank: Boolean
+)
+

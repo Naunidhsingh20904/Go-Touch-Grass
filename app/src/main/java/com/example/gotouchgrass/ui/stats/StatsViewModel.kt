@@ -1,6 +1,10 @@
 package com.example.gotouchgrass.ui.stats
 
 import androidx.lifecycle.ViewModel
+import com.example.gotouchgrass.domain.LeaderboardData
+import com.example.gotouchgrass.domain.LifetimeStats
+import com.example.gotouchgrass.domain.StreakData
+import com.example.gotouchgrass.domain.WeeklySummary
 
 class StatsViewModel : ViewModel() {
 
@@ -27,12 +31,4 @@ class StatsViewModel : ViewModel() {
         LeaderboardData("142", "You", "Level 8", "12,450 XP", false)
     )
 }
-
-data class LeaderboardData(
-    val rank: String,
-    val name: String,
-    val level: String,
-    val xp: String,
-    val isGoldRank: Boolean
-)
 
