@@ -1,10 +1,6 @@
 package com.example.gotouchgrass.ui.map
 
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
+import android.location.Location
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,161 +12,96 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import com.example.gotouchgrass.ui.theme.ForestGreen
+import com.example.gotouchgrass.domain.FakeData
+import com.example.gotouchgrass.ui.map.capture.CaptureScreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
-import com.example.gotouchgrass.ui.theme.SandLight
-import com.example.gotouchgrass.ui.theme.WarmWhite
-import com.google.android.gms.location.LocationServices
+import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 
-// Zone class to ease UI
+private const val CAPTURE_RADIUS_METERS = 100f
+private const val DEMO_EGG_FOUNTAIN_ID = "lm_uw_egg_fountain"
+private val UW_DEMO_LOCATION = LatLng(43.4723, -80.5449)
 
-data class Zone(
-    val id: String,
-    val title: String,
-    val owner: String,
-    val since: String,
-    val activeMembers: List<Int>, // drawable IDs
-    val currentScore: Int,
-    val maxScore: Int,
-    val position: LatLng,
-    val zoneName: String? = null
-)
-
-private data class ZoneBounds(
+private data class SelectedPoi(
+    val placeId: String,
     val name: String,
-    val minLat: Double,
-    val maxLat: Double,
-    val minLng: Double,
-    val maxLng: Double
+    val latLng: LatLng
 )
 
-private val UW_ZONES = listOf(
-    ZoneBounds(
-        name = "Engineering Zone",
-        minLat = 43.4708, maxLat = 43.4732,
-        minLng = -80.5462, maxLng = -80.5418
-    ),
-    ZoneBounds(
-        name = "Math Zone",
-        minLat = 43.4718, maxLat = 43.4742,
-        minLng = -80.5474, maxLng = -80.5438
-    ),
-    ZoneBounds(
-        name = "Arts Zone",
-        minLat = 43.4688, maxLat = 43.4714,
-        minLng = -80.5460, maxLng = -80.5420
+private data class SelectedPoiInfo(
+    val zoneName: String?,
+    val categoryName: String?,
+    val ownerDisplayName: String?
+)
+
+private fun selectedPoiInfo(selectedPoi: SelectedPoi): SelectedPoiInfo {
+    val matchedLandmark = FakeData.landmarks.firstOrNull { landmark ->
+        landmark.id == selectedPoi.placeId || landmark.name.equals(selectedPoi.name, ignoreCase = true)
+    }
+
+    val zone = matchedLandmark?.let { landmark ->
+        FakeData.zones.firstOrNull { it.id == landmark.zoneId }
+    }
+
+    val ownerDisplayName = zone?.let { matchedZone ->
+        FakeData.zoneOwnership
+            .firstOrNull { it.zoneId == matchedZone.id }
+            ?.ownerUserId
+            ?.let { ownerId -> FakeData.users.firstOrNull { it.id == ownerId }?.displayName }
+    }
+
+    return SelectedPoiInfo(
+        zoneName = zone?.name,
+        categoryName = matchedLandmark?.category?.name?.replace("_", " "),
+        ownerDisplayName = ownerDisplayName
     )
-)
-
-data class NearbyPerson(
-    val name: String,
-    val position: LatLng
-)
-
-
-private fun zoneForLatLng(p: LatLng): String? {
-    return UW_ZONES.firstOrNull { z ->
-        p.latitude in z.minLat..z.maxLat && p.longitude in z.minLng..z.maxLng
-    }?.name
 }
 
+private fun resolveCapturePlaceIdForDemo(placeId: String): String {
+    val isKnownLandmark = FakeData.landmarks.any { it.id == placeId }
+    return if (isKnownLandmark) placeId else DEMO_EGG_FOUNTAIN_ID
+}
 
 @Composable
 fun MapScreen() {
-    var selectedZone by remember { mutableStateOf<Zone?>(null) }
-    val context = LocalContext.current
-    val fused = remember { LocationServices.getFusedLocationProviderClient(context) }
+    var capturePlaceId by remember { mutableStateOf<String?>(null) }
+    var selectedPoi by remember { mutableStateOf<SelectedPoi?>(null) }
+    var capturedPlaceIds by remember { mutableStateOf(setOf<String>()) }
 
-    var userLatLng by remember { mutableStateOf<LatLng?>(null) }
-
-    var capturedIds by remember { mutableStateOf(setOf<String>()) }
-
-    fun fetchLastLocationIfPermitted() {
-        val granted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (!granted) return
-
-        try {
-            fused.lastLocation.addOnSuccessListener { loc ->
-                loc?.let { userLatLng = LatLng(it.latitude, it.longitude) }
+    capturePlaceId?.let { placeId ->
+        CaptureScreen(
+            placeId = placeId,
+            onClose = { capturePlaceId = null },
+            onCaptured = { capturedPlaceId ->
+                capturedPlaceIds = capturedPlaceIds + capturedPlaceId
+                capturePlaceId = null
+                selectedPoi = null
             }
-        } catch (_: SecurityException) {
-            // ignore
-        }
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) fetchLastLocationIfPermitted()
-    }
-
-    LaunchedEffect(Unit) {
-        val granted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (granted) {
-            fetchLastLocationIfPermitted()
-        } else {
-            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
-    }
-
-    val uw = LatLng(43.4723, -80.5449)
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(uw, 15f)
-    }
-
-    LaunchedEffect(userLatLng) {
-        userLatLng?.let {
-            cameraPositionState.position = CameraPosition.fromLatLngZoom(it, 17f)
-        }
-    }
-
-    val base = userLatLng ?: LatLng(43.4723, -80.5449)
-    val nearbyPeople = remember(base) {
-        listOf(
-            NearbyPerson("Kenny", LatLng(base.latitude + 0.0006, base.longitude + 0.0004)),
-            NearbyPerson("Stan", LatLng(base.latitude - 0.0004, base.longitude + 0.0007)),
-            NearbyPerson("Kyle", LatLng(base.latitude + 0.0002, base.longitude - 0.0008)),
         )
+        return
+    }
+
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(UW_DEMO_LOCATION, 16f)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -178,216 +109,141 @@ fun MapScreen() {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
-            properties = MapProperties(isMyLocationEnabled = userLatLng != null),
+            properties = MapProperties(isMyLocationEnabled = false),
             uiSettings = MapUiSettings(
                 zoomControlsEnabled = true,
                 compassEnabled = true,
+                myLocationButtonEnabled = false,
             ),
             onPOIClick = { poi ->
-                val id = poi.placeId
-                val captured = capturedIds.contains(id)
-
-                selectedZone = Zone(
-                    id = id,
-                    title = poi.name,
-                    owner = if (captured) "You" else "Unclaimed",
-                    since = if (captured) "Just now" else "N/A",
-                    activeMembers = emptyList(),
-                    currentScore = if (captured) 100 else 0,
-                    maxScore = 100,
-                    position = poi.latLng,
-                    zoneName = zoneForLatLng(poi.latLng)
+                selectedPoi = SelectedPoi(
+                    placeId = poi.placeId,
+                    name = poi.name,
+                    latLng = poi.latLng
                 )
             }
-        ) {
-            nearbyPeople.forEach { person ->
-                Marker(
-                    state = MarkerState(person.position),
-                    title = person.name,
-                    snippet = "Nearby"
-                )
-            }
-        }
-
-        TopHud(
-            xpProgress = 0.72f,
         )
 
-
-        selectedZone?.let { zone ->
-            ZonePopup(
-                zone = zone,
-                isCaptured = capturedIds.contains(zone.id),
+        selectedPoi?.let { poi ->
+            val info = remember(poi.placeId, poi.name) { selectedPoiInfo(poi) }
+            val resolvedCapturePlaceId = remember(poi.placeId) { resolveCapturePlaceIdForDemo(poi.placeId) }
+            val distanceResult = FloatArray(1)
+            Location.distanceBetween(
+                UW_DEMO_LOCATION.latitude,
+                UW_DEMO_LOCATION.longitude,
+                poi.latLng.latitude,
+                poi.latLng.longitude,
+                distanceResult
+            )
+            val distanceMeters = distanceResult[0]
+            val isNearby = distanceMeters <= CAPTURE_RADIUS_METERS
+            CapturePoiPopup(
+                selectedPoi = poi,
+                info = info,
+                isNearby = isNearby,
+                distanceMeters = distanceMeters,
+                isCaptured = capturedPlaceIds.contains(resolvedCapturePlaceId),
                 onCapture = {
-                    capturedIds = capturedIds + zone.id
-                    selectedZone = zone.copy(
-                        owner = "You",
-                        since = "Just now",
-                        currentScore = 100
-                    )
+                    selectedPoi = null
+                    capturePlaceId = resolvedCapturePlaceId
                 },
-                onClose = { selectedZone = null }
+                onClose = { selectedPoi = null }
             )
         }
-
     }
 }
 
-////////////////////////////////////////////////////////////
-// TOP HUD
-////////////////////////////////////////////////////////////
-
 @Composable
-private fun TopHud(
-    xpProgress: Float,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(12.dp)
-    ) {
-
-        // Black background container
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color.Black.copy(alpha = 0.75f))
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-
-            // XP Bar
-            Box(
-                modifier = Modifier
-                    .width(160.dp)
-                    .height(14.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color.DarkGray)
-            ) {
-                LinearProgressIndicator(
-                    progress = { xpProgress },
-                    modifier = Modifier.fillMaxSize(),
-                    color = ForestGreen,
-                    trackColor = Color.Transparent
-                )
-            }
-        }
-    }
-}
-
-
-@Composable
-private fun ZonePopup(
-    zone: Zone,
+private fun CapturePoiPopup(
+    selectedPoi: SelectedPoi,
+    info: SelectedPoiInfo,
+    isNearby: Boolean,
+    distanceMeters: Float?,
     isCaptured: Boolean,
     onCapture: () -> Unit,
     onClose: () -> Unit
 ) {
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.6f))
+            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f))
             .clickable { onClose() }
     ) {
-
         Card(
             modifier = Modifier
-                .align(Alignment.Center)
-                .padding(20.dp),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+                .align(Alignment.BottomCenter)
+                .padding(GoTouchGrassDimens.SpacingMd),
+            shape = RoundedCornerShape(GoTouchGrassDimens.RadiusLarge),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-
             Column(
                 modifier = Modifier
-                    .width(330.dp)
-                    .padding(16.dp)
+                    .fillMaxWidth()
+                    .padding(GoTouchGrassDimens.SpacingMd),
+                verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
             ) {
-
-                // Title Bar
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(ForestGreen)
-                        .padding(8.dp)
-                ) {
-                    Text(
-                        text = zone.title,
-                        color = WarmWhite,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-
-                zone.zoneName?.let {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Zone: $it", style = MaterialTheme.typography.bodySmall)
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
                 Text(
-                    text = "Currently Owned By",
-                    style = MaterialTheme.typography.bodySmall
-                )
-
-                Text(
-                    text = zone.owner,
+                    text = selectedPoi.name,
                     style = MaterialTheme.typography.titleMedium
                 )
 
+                info.zoneName?.let { zoneName ->
+                    Text(
+                        text = "Zone: $zoneName",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                info.categoryName?.let { categoryName ->
+                    Text(
+                        text = "Category: $categoryName",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                info.ownerDisplayName?.let { ownerDisplayName ->
+                    Text(
+                        text = "Owned by: $ownerDisplayName",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
                 Text(
-                    text = "Since ${zone.since}",
+                    text = when {
+                        isCaptured -> "Already captured."
+                        distanceMeters == null -> "Location unavailable."
+                        isNearby -> "Nearby (${distanceMeters.toInt()}m)"
+                        else -> "Move closer (${distanceMeters.toInt()}m)"
+                    },
                     style = MaterialTheme.typography.bodySmall
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                LinearProgressIndicator(
-                    progress = zone.currentScore.toFloat() / zone.maxScore.toFloat(),
-                    modifier = Modifier.fillMaxWidth(),
-                    color = ForestGreen,
-                    trackColor = SandLight
-                )
-
-                Text(
-                    text = "${zone.currentScore}/${zone.maxScore}",
-                    style = MaterialTheme.typography.bodySmall
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text("Active Members:")
+                Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingXs))
 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
                 ) {
-                    zone.activeMembers.forEach { drawable ->
-                        Image(
-                            painter = painterResource(id = drawable),
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp)
+                    Button(
+                        onClick = onCapture,
+                        enabled = isNearby && !isCaptured,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            when {
+                                isCaptured -> "Captured"
+                                isNearby -> "Capture"
+                                else -> "Not Nearby"
+                            }
                         )
                     }
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = if (isCaptured) onClose else onCapture,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(if (isCaptured) "Captured ✓" else "Capture")
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Button(
-                    onClick = onClose,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Close")
+                    Button(
+                        onClick = onClose,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Close")
+                    }
                 }
             }
         }

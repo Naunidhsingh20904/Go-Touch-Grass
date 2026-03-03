@@ -148,6 +148,18 @@ object FakeData {
             isVerified = true
         ),
         Landmark(
+            id = "lm_uw_egg_fountain",
+            zoneId = "zone_uw_main_campus",
+            name = "University of Waterloo Egg Fountain",
+            category = LandmarkCategory.STATUE,
+            latLng = LatLng(43.4720, -80.5433),
+            radiusMeters = 22.0,
+            description = "The iconic Egg Fountain landmark at the University of Waterloo campus core.",
+            photoRef = null,
+            createdByUserId = null,
+            isVerified = true
+        ),
+        Landmark(
             id = "lm_cif_soccer_fields",
             zoneId = "zone_cif_fields",
             name = "CIF Soccer Fields",
