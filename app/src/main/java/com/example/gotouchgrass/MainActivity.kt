@@ -18,19 +18,22 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.gotouchgrass.ui.explore.ExploreScreen
 import com.example.gotouchgrass.ui.explore.ExploreViewModel
+import com.google.android.libraries.places.api.Places
 import com.example.gotouchgrass.ui.screens.AuthScreen
 import com.example.gotouchgrass.ui.screens.ProfileScreen
-import com.example.gotouchgrass.ui.screens.MapScreen
+import com.example.gotouchgrass.ui.map.MapScreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 
 import com.example.gotouchgrass.ui.search.SearchScreen
@@ -43,6 +46,9 @@ import com.example.gotouchgrass.ui.stats.StatsViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!Places.isInitialized()) {
+            Places.initialize(applicationContext, BuildConfig.MAPS_API_KEY)
+        }
         enableEdgeToEdge()
         setContent {
             GoTouchGrassTheme {
@@ -71,10 +77,17 @@ fun GoTouchGrassApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.MAP) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
 
+    val context = LocalContext.current.applicationContext
     val searchViewModel = remember { SearchViewModel() }
     val exploreViewModel = remember { ExploreViewModel() }
     val statsViewModel = remember { StatsViewModel() }
     val settingsViewModel = remember { SettingsViewModel() }
+
+    LaunchedEffect(searchViewModel, context) {
+        if (Places.isInitialized()) {
+            searchViewModel.initPlaces(Places.createClient(context))
+        }
+    }
 
     if (!isAuthenticated) {
         AuthScreen(
