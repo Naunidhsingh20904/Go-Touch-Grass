@@ -1,6 +1,7 @@
 package com.example.gotouchgrass.ui.explore
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -22,6 +25,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -43,6 +50,7 @@ import com.example.gotouchgrass.ui.theme.XpBarStart
 fun ExploreScreen(viewModel: ExploreViewModel) {
 
     val scrollState = rememberScrollState()
+    var selectedRoute by remember { mutableStateOf<RouteCardData?>(null) }
 
     Column(
         modifier = Modifier
@@ -107,8 +115,7 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
             }
             viewModel.dailyChallenges.forEach { cardData ->
                 ChallengeCard(
-                    card = cardData,
-                    onClick = {})
+                    card = cardData)
             }
         }
 
@@ -131,8 +138,7 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
             }
             viewModel.weeklyChallenges.forEach { cardData ->
                 ChallengeCard(
-                    card = cardData,
-                    onClick = {})
+                    card = cardData)
             }
         }
 
@@ -153,21 +159,31 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
                     style = MaterialTheme.typography.titleMedium
                 )
             }
-            viewModel.curatedRoutes.forEach { cardData -> RouteCard(card = cardData, onClick = {}) }
+            viewModel.curatedRoutes.forEach { cardData ->
+                RouteCard(
+                    card = cardData,
+                    onClick = { selectedRoute = cardData }
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingLg))
+    }
+
+    selectedRoute?.let { route ->
+        RouteInfoPopup(
+            route = route,
+            onClose = { selectedRoute = null }
+        )
     }
 }
 
 @Composable
 fun ChallengeCard(
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     card: ChallengeCardData
 ) {
     ElevatedCard(
-        onClick = onClick,
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         modifier = modifier
             .fillMaxWidth()
@@ -236,6 +252,71 @@ fun ChallengeCard(
 }
 
 @Composable
+private fun RouteInfoPopup(
+    route: RouteCardData,
+    onClose: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f))
+            .padding(GoTouchGrassDimens.SpacingMd)
+    ) {
+
+        ElevatedCard(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(GoTouchGrassDimens.SpacingMd),
+                verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
+            ) {
+                Text(
+                    text = route.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = route.description,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Text("Theme: ${route.theme.name}", style = MaterialTheme.typography.bodySmall)
+                Text("Difficulty: ${route.difficulty.name}", style = MaterialTheme.typography.bodySmall)
+                Text("Zones: ${route.zoneCount}", style = MaterialTheme.typography.bodySmall)
+                Text("Estimated time: ${route.hours} hours", style = MaterialTheme.typography.bodySmall)
+
+                if (route.routeStops.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingXs))
+                    Text(
+                        text = "Route Stops",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    route.routeStops.forEach { stop ->
+                        Text(
+                            text = "$stop",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = onClose,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Close")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun RouteCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -252,7 +333,7 @@ fun RouteCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                painter = painterResource(id = card.routeType.iconRes()),
+                painter = painterResource(id = card.theme.iconRes()),
                 contentDescription = "Route Type",
                 tint = ForestGreen,
                 modifier = Modifier.size(32.dp)

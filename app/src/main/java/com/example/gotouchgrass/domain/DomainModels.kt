@@ -276,10 +276,19 @@ enum class ChallengeTimeWindow {
     WEEKLY
 }
 
+enum class ChallengeType {
+    VISIT,
+    EXPLORE,
+    TIME,
+    ZONE,
+    SOCIAL
+}
+
 data class Challenge(
     val id: String,
     val title: String,
     val description: String,
+    val challengeType: ChallengeType,
     val timeWindow: ChallengeTimeWindow,
     val ruleConfigJson: String,
     val rewardXP: Int,
@@ -437,4 +446,3 @@ data class ApproxPresence(
     val hashCell: GeoCell,
     val lastUpdatedAtIso: String
 )
-
