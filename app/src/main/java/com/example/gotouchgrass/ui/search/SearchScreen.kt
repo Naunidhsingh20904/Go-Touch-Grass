@@ -4,9 +4,12 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -18,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
@@ -33,6 +37,7 @@ import com.example.gotouchgrass.ui.theme.SandLight
 fun SearchScreen(viewModel: SearchViewModel) {
     val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    val isQueryActive = viewModel.query.isNotBlank()
 
     LaunchedEffect(viewModel, context) {
         val hasFineLocationPermission = ContextCompat.checkSelfPermission(
@@ -64,9 +69,18 @@ fun SearchScreen(viewModel: SearchViewModel) {
                 // Header (Search + XP)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (isQueryActive) {
+                        IconButton(onClick = { viewModel.onQueryChange("") }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
+                    }
+
                     Text(
                         text = "Search",
                         style = MaterialTheme.typography.headlineLarge,
@@ -114,8 +128,6 @@ fun SearchScreen(viewModel: SearchViewModel) {
             verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingMd),
             contentPadding = PaddingValues(bottom = GoTouchGrassDimens.SpacingMd)
         ) {
-            val isQueryActive = viewModel.query.isNotBlank()
-
             if (viewModel.isSearching) {
                 item {
                     Row(
@@ -144,11 +156,11 @@ fun SearchScreen(viewModel: SearchViewModel) {
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
-                items(
+                itemsIndexed(
                     items = viewModel.searchResults,
-                    key = { it.id }
-                ) { cardData ->
-                    LocationCard(card = cardData, onClick = {})
+                    key = { index, item -> "search_${item.id}_$index" }
+                ) { _, cardData ->
+                    LocationCard(card = cardData)
                 }
             }
 
@@ -170,8 +182,11 @@ fun SearchScreen(viewModel: SearchViewModel) {
                                 style = MaterialTheme.typography.titleMedium
                             )
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
-                            viewModel.recentSearches.forEach { search ->
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
+                            items(
+                                items = viewModel.recentSearches,
+                                key = { search -> search }
+                            ) { search ->
                                 Surface(
                                     onClick = { viewModel.onQueryChange(search) },
                                     shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
@@ -179,12 +194,16 @@ fun SearchScreen(viewModel: SearchViewModel) {
                                 ) {
                                     Text(
                                         text = search,
-                                        modifier = Modifier.padding(
-                                            horizontal = GoTouchGrassDimens.SpacingSm,
-                                            vertical = GoTouchGrassDimens.SpacingXs
-                                        ),
+                                        modifier = Modifier
+                                            .widthIn(max = 140.dp)
+                                            .padding(
+                                                horizontal = GoTouchGrassDimens.SpacingSm,
+                                                vertical = GoTouchGrassDimens.SpacingXs
+                                            ),
                                         style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -209,30 +228,13 @@ fun SearchScreen(viewModel: SearchViewModel) {
                         )
                     }
                 }
-                items(viewModel.trendingLocations, key = { it.id }) { cardData ->
-                    LocationCard(card = cardData, onClick = {})
+                itemsIndexed(
+                    items = viewModel.trendingLocations,
+                    key = { index, item -> "trending_${item.id}_$index" }
+                ) { _, cardData ->
+                    LocationCard(card = cardData)
                 }
 
-                item {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.location_on_24),
-                            contentDescription = "Nearby",
-                            tint = ForestGreen,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = "Nearby Zones",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
-                }
-                items(viewModel.nearbyLocations, key = { it.id }) { cardData ->
-                    LocationCard(card = cardData, onClick = {})
-                }
             }
         }
     }
@@ -240,12 +242,10 @@ fun SearchScreen(viewModel: SearchViewModel) {
 
 @Composable
 fun LocationCard(
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     card: LocationCardData
 ) {
     ElevatedCard(
-        onClick = onClick,
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         modifier = modifier
             .fillMaxWidth()
@@ -263,20 +263,33 @@ fun LocationCard(
 
             Spacer(Modifier.width(GoTouchGrassDimens.SpacingMd))
 
-            Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingXs)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingXs)
+            ) {
                 Text(
                     text = card.title,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm),
+                    verticalAlignment = Alignment.Top
+                ) {
                     Text(
                         text = card.description,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = card.rarity.name,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = card.rarity.color()
+                        color = card.rarity.color(),
+                        maxLines = 1
                     )
                 }
             }
