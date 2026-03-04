@@ -1,20 +1,28 @@
 package com.example.gotouchgrass.ui.stats
 
 import androidx.lifecycle.ViewModel
+import com.example.gotouchgrass.domain.LeaderboardData
+import com.example.gotouchgrass.domain.LifetimeStats
+import com.example.gotouchgrass.domain.StreakData
+import com.example.gotouchgrass.domain.WeeklySummary
 
 class StatsViewModel : ViewModel() {
 
-    val timeOutside = "19.3h"
-    val zonesVisited = "28"
-    val xpEarned = "+2,450"
+    val weeklySummary = WeeklySummary(
+        timeOutside = "19.3h",
+        zonesVisited = 28,
+        xpEarned = 2450,
+        dailyActivity = listOf(0.84f, 0.63f, 0.95f, 0.53f, 0.74f, 1.0f, 0.79f)
+    )
 
-    val currentStreak = "7 Days"
-    val bestStreak = "14 Days"
+    val streak = StreakData(currentDays = 7, bestDays = 14)
 
-    val totalXP = "12,450"
-    val coinsEarned = "2,340"
-    val totalDistance = "127 km"
-    val citiesExplored = "3"
+    val lifetimeStats = LifetimeStats(
+        totalXp = 12450,
+        coinsEarned = 2340,
+        totalDistanceKm = 127f,
+        citiesExplored = 3
+    )
 
     val leaderboardEntries = listOf(
         LeaderboardData("1", "WorldExplorer", "Level 42", "125,000 XP", true),
@@ -24,10 +32,3 @@ class StatsViewModel : ViewModel() {
     )
 }
 
-data class LeaderboardData(
-    val rank: String,
-    val name: String,
-    val level: String,
-    val xp: String,
-    val isGoldRank: Boolean
-)
