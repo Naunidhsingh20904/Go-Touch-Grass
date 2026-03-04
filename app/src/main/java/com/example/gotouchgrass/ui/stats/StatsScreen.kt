@@ -134,7 +134,7 @@ fun WeeklySummaryCard(viewModel: StatsViewModel) {
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = viewModel.timeOutside,
+                        text = viewModel.weeklySummary.timeOutside,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -151,7 +151,7 @@ fun WeeklySummaryCard(viewModel: StatsViewModel) {
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = viewModel.zonesVisited,
+                        text = viewModel.weeklySummary.zonesVisited.toString(),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -168,7 +168,7 @@ fun WeeklySummaryCard(viewModel: StatsViewModel) {
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = viewModel.xpEarned,
+                        text = "+${viewModel.weeklySummary.xpEarned}",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF4CAF50)
@@ -190,69 +190,18 @@ fun WeeklySummaryCard(viewModel: StatsViewModel) {
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.Bottom
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .width(32.dp)
-                            .height(48.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
-                            )
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(32.dp)
-                            .height(36.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
-                            )
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(32.dp)
-                            .height(54.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
-                            )
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(32.dp)
-                            .height(30.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
-                            )
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(32.dp)
-                            .height(42.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
-                            )
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(32.dp)
-                            .height(57.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
-                            )
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(32.dp)
-                            .height(45.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
-                            )
-                    )
+                    val maxBarHeight = 60.dp
+                    viewModel.weeklySummary.dailyActivity.forEach { fraction ->
+                        Box(
+                            modifier = Modifier
+                                .width(32.dp)
+                                .height(maxBarHeight * fraction)
+                                .background(
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
+                                )
+                        )
+                    }
                 }
 
                 Row(
@@ -349,7 +298,7 @@ fun CurrentStreak(
             }
 
             Text(
-                text = viewModel.currentStreak,
+                text = "${viewModel.streak.currentDays} Days",
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold
             )
@@ -418,7 +367,7 @@ fun LifetimeStatsCard(
                             color = Color.Gray
                         )
                         Text(
-                            text = viewModel.totalXP,  // ← CHANGED to viewModel
+                            text = viewModel.lifetimeStats.totalXp.toString(),
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -441,7 +390,7 @@ fun LifetimeStatsCard(
                             color = Color.Gray
                         )
                         Text(
-                            text = viewModel.coinsEarned,
+                            text = viewModel.lifetimeStats.coinsEarned.toString(),
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -469,7 +418,7 @@ fun LifetimeStatsCard(
                             color = Color.Gray
                         )
                         Text(
-                            text = viewModel.totalDistance,
+                            text = "${viewModel.lifetimeStats.totalDistanceKm.toInt()} km",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -492,7 +441,7 @@ fun LifetimeStatsCard(
                             color = Color.Gray
                         )
                         Text(
-                            text = viewModel.citiesExplored,
+                            text = viewModel.lifetimeStats.citiesExplored.toString(),
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
