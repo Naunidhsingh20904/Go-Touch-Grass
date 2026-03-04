@@ -19,10 +19,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gotouchgrass.ui.theme.*
 
 @Composable
 fun ProfileScreen(
+    viewModel: ProfileViewModel = viewModel(),
     onSettingsClick: () -> Unit = {}
 ) {
     Column(
@@ -41,33 +43,38 @@ fun ProfileScreen(
 
         // Profile Overview Card
         ProfileOverviewCard(
-            username = "YourUsername",
-            joinedText = "Joined 3 months ago",
-            streakDays = 7,
-            level = 8,
-            currentXp = 450,
-            maxXp = 1000
+            username = viewModel.username,
+            joinedText = viewModel.joinedText,
+            streakDays = viewModel.streakDays,
+            level = viewModel.level,
+            currentXp = viewModel.currentXp,
+            maxXp = viewModel.maxXp
         )
 
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingMd))
 
         // Quick Stats Grid
-        QuickStatsGrid()
+        QuickStatsGrid(
+            zonesVisited = viewModel.zonesVisited,
+            zonesOwned = viewModel.zonesOwned,
+            timeExplored = viewModel.timeExploredHours,
+            challengesDone = viewModel.challengesDone
+        )
 
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingMd))
 
         // Badges Section
-        BadgesSection()
+        BadgesSection(badges = viewModel.badges)
 
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingMd))
 
         // Recent Activity Section
-        RecentActivitySection()
+        RecentActivitySection(activities = viewModel.recentActivity)
 
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingMd))
 
         // Friends Section
-        FriendsSection()
+        FriendsSection(friendInitials = viewModel.friendInitials)
 
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingLg))
     }
@@ -237,7 +244,12 @@ private fun ProfileOverviewCard(
 }
 
 @Composable
-private fun QuickStatsGrid() {
+private fun QuickStatsGrid(
+    zonesVisited: String,
+    zonesOwned: String,
+    timeExplored: String,
+    challengesDone: String
+) {
     Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -245,13 +257,13 @@ private fun QuickStatsGrid() {
         ) {
             StatCard(
                 icon = Icons.Default.LocationOn,
-                value = "24",
+                value = zonesVisited,
                 label = "Zones Visited",
                 modifier = Modifier.weight(1f)
             )
             StatCard(
                 icon = Icons.Default.Star,
-                value = "8",
+                value = zonesOwned,
                 label = "Zones Owned",
                 modifier = Modifier.weight(1f)
             )
@@ -262,13 +274,13 @@ private fun QuickStatsGrid() {
         ) {
             StatCard(
                 icon = Icons.Default.DateRange,
-                value = "47h",
+                value = timeExplored,
                 label = "Time Explored",
                 modifier = Modifier.weight(1f)
             )
             StatCard(
                 icon = Icons.Default.Check,
-                value = "12",
+                value = challengesDone,
                 label = "Challenges Done",
                 modifier = Modifier.weight(1f)
             )
@@ -318,8 +330,19 @@ private fun StatCard(
     }
 }
 
+private val badgeIcons = listOf(
+    Icons.Default.ThumbUp,
+    Icons.Default.Place,
+    Icons.Default.Star,
+    Icons.Default.Place,
+    Icons.Default.Favorite,
+    Icons.Default.Build
+)
+
 @Composable
-private fun BadgesSection() {
+private fun BadgesSection(
+    badges: List<ProfileViewModel.ProfileBadgeDisplay>
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(GoTouchGrassDimens.RadiusLarge),
@@ -361,33 +384,30 @@ private fun BadgesSection() {
 
             Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingSm))
 
-            // Badge grid 3x2
-            val activeBadges = listOf(
-                BadgeInfo(Icons.Default.ThumbUp, "First Steps", true),
-                BadgeInfo(Icons.Default.Place, "Explorer", true),
-                BadgeInfo(Icons.Default.Star, "Night Owl", true)
-            )
-            val lockedBadges = listOf(
-                BadgeInfo(Icons.Default.Place, "Globe Trotter", false),
-                BadgeInfo(Icons.Default.Favorite, "Champion", false),
-                BadgeInfo(Icons.Default.Build, "Legendary", false)
-            )
-
+            val displayBadges = badges.take(6)
             Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    activeBadges.forEach { badge ->
-                        BadgeItem(badge = badge)
+                    displayBadges.take(3).forEachIndexed { index, badge ->
+                        BadgeItem(
+                            icon = badgeIcons.getOrElse(index) { Icons.Default.Star },
+                            name = badge.name,
+                            isUnlocked = badge.isUnlocked
+                        )
                     }
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    lockedBadges.forEach { badge ->
-                        BadgeItem(badge = badge)
+                    displayBadges.drop(3).forEachIndexed { index, badge ->
+                        BadgeItem(
+                            icon = badgeIcons.getOrElse(3 + index) { Icons.Default.Star },
+                            name = badge.name,
+                            isUnlocked = badge.isUnlocked
+                        )
                     }
                 }
             }
@@ -395,14 +415,12 @@ private fun BadgesSection() {
     }
 }
 
-private data class BadgeInfo(
-    val icon: ImageVector,
-    val name: String,
-    val isUnlocked: Boolean
-)
-
 @Composable
-private fun BadgeItem(badge: BadgeInfo) {
+private fun BadgeItem(
+    icon: ImageVector,
+    name: String,
+    isUnlocked: Boolean
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -410,13 +428,13 @@ private fun BadgeItem(badge: BadgeInfo) {
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(if (badge.isUnlocked) ForestGreen else SandMuted),
+                .background(if (isUnlocked) ForestGreen else SandMuted),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = badge.icon,
-                contentDescription = badge.name,
-                tint = if (badge.isUnlocked) WarmWhite else TextMuted,
+                imageVector = icon,
+                contentDescription = name,
+                tint = if (isUnlocked) WarmWhite else TextMuted,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -424,9 +442,9 @@ private fun BadgeItem(badge: BadgeInfo) {
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingXs))
 
         Text(
-            text = badge.name,
+            text = name,
             style = MaterialTheme.typography.labelSmall,
-            color = if (badge.isUnlocked)
+            color = if (isUnlocked)
                 MaterialTheme.colorScheme.onSurface
             else
                 MaterialTheme.colorScheme.onSurfaceVariant
@@ -435,7 +453,9 @@ private fun BadgeItem(badge: BadgeInfo) {
 }
 
 @Composable
-private fun RecentActivitySection() {
+private fun RecentActivitySection(
+    activities: List<ProfileViewModel.ActivityItemDisplay>
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(GoTouchGrassDimens.RadiusLarge),
@@ -463,29 +483,25 @@ private fun RecentActivitySection() {
 
             Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingMd))
 
-            val activities = listOf(
-                ActivityItem("MC Building", "2h ago", "+120 XP"),
-                ActivityItem("SLC", "5h ago", "+85 XP"),
-                ActivityItem("Lazeez", "1d ago", "+250 XP")
-            )
-
             Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
                 activities.forEach { activity ->
-                    ActivityRow(activity = activity)
+                    ActivityRow(
+                        name = activity.name,
+                        timeAgo = activity.timeAgo,
+                        xpText = activity.xpText
+                    )
                 }
             }
         }
     }
 }
 
-private data class ActivityItem(
-    val name: String,
-    val time: String,
-    val xp: String
-)
-
 @Composable
-private fun ActivityRow(activity: ActivityItem) {
+private fun ActivityRow(
+    name: String,
+    timeAgo: String,
+    xpText: String
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(GoTouchGrassDimens.RadiusMedium),
@@ -506,21 +522,21 @@ private fun ActivityRow(activity: ActivityItem) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = activity.name,
+                    text = name,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Medium
                     ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = activity.time,
+                    text = timeAgo,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Text(
-                text = activity.xp,
+                text = xpText,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold
                 ),
@@ -531,7 +547,7 @@ private fun ActivityRow(activity: ActivityItem) {
 }
 
 @Composable
-private fun FriendsSection() {
+private fun FriendsSection(friendInitials: List<String>) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(GoTouchGrassDimens.RadiusLarge),
@@ -579,26 +595,34 @@ private fun FriendsSection() {
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
             ) {
-                val friends = listOf("A", "B", "C", "D", "E")
-                friends.forEach { initial ->
+                friendInitials.forEach { initial ->
                     FriendAvatar(initial = initial)
                 }
 
-                // +12 more
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(SandMuted),
-                    contentAlignment = Alignment.Center
-                ) {
+                if (friendInitials.isEmpty()) {
                     Text(
-                        text = "+12",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Medium
-                        ),
-                        color = TextSecondary
+                        text = "No friends yet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+
+                if (friendInitials.size > 6) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(SandMuted),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "+${friendInitials.size - 6}",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = TextSecondary
+                        )
+                    }
                 }
             }
         }

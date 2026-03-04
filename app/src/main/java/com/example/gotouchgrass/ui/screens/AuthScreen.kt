@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,20 +31,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gotouchgrass.ui.theme.*
 
 @Composable
 fun AuthScreen(
+    viewModel: AuthViewModel = viewModel(),
     onSignIn: (email: String, password: String) -> Unit = { _, _ -> },
     onSignUp: (username: String, email: String, password: String) -> Unit = { _, _, _ -> },
     onForgotPassword: () -> Unit = {}
 ) {
-    var isSignIn by remember { mutableStateOf(true) }
-
-    // Form fields
-    var username by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    val isSignIn by viewModel.isSignInTab.collectAsState()
+    val username by viewModel.username.collectAsState()
+    val email by viewModel.email.collectAsState()
+    val password by viewModel.password.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     Box(
         modifier = Modifier
@@ -64,21 +66,28 @@ fun AuthScreen(
             // Form Card
             FormCard(
                 isSignIn = isSignIn,
-                onTabChange = { isSignIn = it },
+                onTabChange = viewModel::setSignInTab,
                 username = username,
-                onUsernameChange = { username = it },
+                onUsernameChange = viewModel::setUsername,
                 email = email,
-                onEmailChange = { email = it },
+                onEmailChange = viewModel::setEmail,
                 password = password,
-                onPasswordChange = { password = it },
+                onPasswordChange = viewModel::setPassword,
                 onPrimaryAction = {
                     if (isSignIn) {
-                        onSignIn(email, password)
+                        when (val result = viewModel.signIn()) {
+                            is AuthResult.Success -> onSignIn(email, password)
+                            is AuthResult.Error -> { /* error shown via viewModel.errorMessage */ }
+                        }
                     } else {
-                        onSignUp(username, email, password)
+                        when (val result = viewModel.signUp()) {
+                            is AuthResult.Success -> onSignUp(username, email, password)
+                            is AuthResult.Error -> { /* error shown via viewModel.errorMessage */ }
+                        }
                     }
                 },
                 onForgotPassword = onForgotPassword,
+                errorMessage = errorMessage,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -211,6 +220,7 @@ private fun FormCard(
     onPasswordChange: (String) -> Unit,
     onPrimaryAction: () -> Unit,
     onForgotPassword: () -> Unit,
+    errorMessage: String?,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -266,6 +276,16 @@ private fun FormCard(
                 icon = Icons.Default.Lock,
                 isPassword = true
             )
+
+            if (errorMessage != null) {
+                Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingSm))
+                Text(
+                    text = errorMessage!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingLg))
 
