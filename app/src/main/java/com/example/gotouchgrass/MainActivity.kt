@@ -32,6 +32,7 @@ import com.example.gotouchgrass.ui.explore.ExploreScreen
 import com.example.gotouchgrass.ui.explore.ExploreViewModel
 import com.google.android.libraries.places.api.Places
 import com.example.gotouchgrass.ui.screens.AuthScreen
+import com.example.gotouchgrass.ui.screens.AuthViewModel
 import com.example.gotouchgrass.ui.screens.ProfileScreen
 import com.example.gotouchgrass.ui.map.MapScreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
@@ -39,6 +40,7 @@ import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 import com.example.gotouchgrass.ui.search.SearchScreen
 import com.example.gotouchgrass.ui.search.SearchViewModel
 import com.example.gotouchgrass.ui.settings.SettingsScreen
+import com.example.gotouchgrass.ui.screens.ProfileViewModel
 import com.example.gotouchgrass.ui.settings.SettingsViewModel
 import com.example.gotouchgrass.ui.stats.StatsScreen
 import com.example.gotouchgrass.ui.stats.StatsViewModel
@@ -81,6 +83,8 @@ fun GoTouchGrassApp() {
     val searchViewModel = remember { SearchViewModel() }
     val exploreViewModel = remember { ExploreViewModel() }
     val statsViewModel = remember { StatsViewModel() }
+    val profileViewModel = remember { ProfileViewModel() }
+    val authViewModel = remember { AuthViewModel() }
     val settingsViewModel = remember { SettingsViewModel() }
 
     LaunchedEffect(searchViewModel, context) {
@@ -91,12 +95,11 @@ fun GoTouchGrassApp() {
 
     if (!isAuthenticated) {
         AuthScreen(
-            onSignIn = { email, password ->
-                // TODO: Implement actual authentication
+            viewModel = authViewModel,
+            onSignIn = { _, _ ->
                 isAuthenticated = true
             },
-            onSignUp = { username, email, password ->
-                // TODO: Implement actual sign up
+            onSignUp = { _, _, _ ->
                 isAuthenticated = true
             },
             onForgotPassword = {
@@ -139,6 +142,7 @@ fun GoTouchGrassApp() {
                             AppDestinations.EXPLORE -> ExploreScreen(viewModel = exploreViewModel)
                             AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
                             AppDestinations.PROFILE -> ProfileScreen(
+                                viewModel = profileViewModel,
                                 onSettingsClick = { showSettings = true }
                             )
                             AppDestinations.MAP -> MapScreen()
