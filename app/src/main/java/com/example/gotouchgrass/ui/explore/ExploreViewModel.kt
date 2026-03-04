@@ -3,16 +3,18 @@ package com.example.gotouchgrass.ui.explore
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import com.example.gotouchgrass.R
+import com.example.gotouchgrass.domain.ChallengeType
+import com.example.gotouchgrass.domain.ExploreChallengeItem
+import com.example.gotouchgrass.domain.RouteTheme
+import com.example.gotouchgrass.domain.ExploreRouteItem
 import com.example.gotouchgrass.ui.theme.Error
 import com.example.gotouchgrass.ui.theme.Info
 import com.example.gotouchgrass.ui.theme.Success
 import com.example.gotouchgrass.ui.theme.Warning
+import com.example.gotouchgrass.domain.ExploreModel
+import com.example.gotouchgrass.domain.RouteDifficulty
 
 enum class Difficulty { EASY, MEDIUM, HARD, EXPERT }
-
-enum class ChallengeType { VISIT, EXPLORE, TIME, ZONE, SOCIAL }
-
-enum class RouteType { FOOD, DRINK, NATURE, CITY }
 
 fun Difficulty.color(): Color = when (this) {
     Difficulty.EASY -> Success
@@ -29,11 +31,13 @@ fun ChallengeType.iconRes(): Int = when (this) {
     ChallengeType.EXPLORE -> R.drawable.directions_walk_24
 }
 
-fun RouteType.iconRes(): Int = when (this) {
-    RouteType.FOOD -> R.drawable.chef_hat_24
-    RouteType.DRINK -> R.drawable.coffee_24
-    RouteType.CITY -> R.drawable.location_city_24
-    RouteType.NATURE -> R.drawable.nature_24
+fun RouteTheme.iconRes(): Int = when (this) {
+    RouteTheme.FOOD -> R.drawable.chef_hat_24
+    RouteTheme.DRINKS -> R.drawable.coffee_24
+    RouteTheme.PARKS -> R.drawable.nature_24
+    RouteTheme.MURALS -> R.drawable.architecture_24dp
+    RouteTheme.HIDDEN_STUDY_SPOTS -> R.drawable.book_2_24dp
+    RouteTheme.CITY_HIGHLIGHTS -> R.drawable.location_city_24
 }
 
 data class RouteCardData(
@@ -43,7 +47,8 @@ data class RouteCardData(
     val hours: Number,
     val description: String,
     val difficulty: Difficulty,
-    val routeType: RouteType
+    val theme: RouteTheme,
+    val routeStops: List<String>
 )
 
 data class ChallengeCardData(
@@ -56,70 +61,44 @@ data class ChallengeCardData(
     val challengeType: ChallengeType
 )
 
-class ExploreViewModel : ViewModel() {
+class ExploreViewModel(
+    private val exploreModel: ExploreModel = ExploreModel(currentUserId = "user_you")
+) : ViewModel() {
 
-    val totalXP = 3652
+    val totalXP = exploreModel.getTotalXp()
 
-    val dailyChallenges = listOf(
-        ChallengeCardData(
-            id = "0123",
-            title = "Visit a New Zone",
-            description = "Venture out and discover!",
-            reward = 100,
-            progress = "0 / 1",
-            progressFraction = 0f,
-            challengeType = ChallengeType.VISIT
-        ),
-        ChallengeCardData(
-            id = "0124",
-            title = "Explore 2km",
-            description = "Go Touch Grass!",
-            reward = 75,
-            progress = "1.8 / 2",
-            progressFraction = 0.9f,
-            challengeType = ChallengeType.EXPLORE
-        )
+    val dailyChallenges = exploreModel.getDailyChallenges().map { it.toChallengeCardData() }
+
+    val weeklyChallenges = exploreModel.getWeeklyChallenges().map { it.toChallengeCardData() }
+
+    val curatedRoutes = exploreModel.getCuratedRoutes().map { it.toRouteCardData() }
+}
+
+private fun ExploreChallengeItem.toChallengeCardData(): ChallengeCardData {
+    return ChallengeCardData(
+        id = id,
+        title = title,
+        description = description,
+        reward = rewardXp,
+        progress = progress,
+        progressFraction = progressFraction,
+        challengeType = challengeType
     )
+}
 
-    val weeklyChallenges = listOf(
-        ChallengeCardData(
-            id = "0125",
-            title = "Zone Collector",
-            description = "Visit 10 different zones",
-            reward = 500,
-            progress = "4 / 10",
-            progressFraction = 0.4f,
-            challengeType = ChallengeType.ZONE
-        ),
-        ChallengeCardData(
-            id = "0126",
-            title = "Social Explorer",
-            description = "Visit 3 trending zones",
-            reward = 300,
-            progress = "2 / 3",
-            progressFraction = 0.67f,
-            challengeType = ChallengeType.SOCIAL
-        )
-    )
-
-    val curatedRoutes = listOf(
-        RouteCardData(
-            id = "0127",
-            title = "Coffee Trail",
-            description = "Discover the best local cafes",
-            zoneCount = 3,
-            hours = 1.5,
-            difficulty = Difficulty.EASY,
-            routeType = RouteType.DRINK
-        ),
-        RouteCardData(
-            id = "0128",
-            title = "Nature Walk",
-            description = "Parks, rivers, and green spaces nearby",
-            zoneCount = 7,
-            hours = 3,
-            difficulty = Difficulty.MEDIUM,
-            routeType = RouteType.NATURE
-        )
+private fun ExploreRouteItem.toRouteCardData(): RouteCardData {
+    return RouteCardData(
+        id = id,
+        title = title,
+        zoneCount = zoneCount,
+        hours = hours,
+        description = description,
+        difficulty = when (difficulty) {
+            RouteDifficulty.EASY -> Difficulty.EASY
+            RouteDifficulty.MEDIUM -> Difficulty.MEDIUM
+            RouteDifficulty.HARD -> Difficulty.HARD
+        },
+        theme = theme,
+        routeStops = routeStops
     )
 }
