@@ -1,14 +1,10 @@
 package com.example.gotouchgrass.ui.screens
 
 import androidx.lifecycle.ViewModel
-import com.example.gotouchgrass.domain.FakeData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-
-/** Demo password for all users in FakeData (prototyping only). */
-private const val DEMO_PASSWORD = "password"
 
 /**
  * Result of a sign-in or sign-up attempt.
@@ -19,8 +15,8 @@ sealed class AuthResult {
 }
 
 /**
- * ViewModel for the Login/Signup (Auth) screen. Validates credentials against
- * [FakeData].users for sign-in; sign-up is allowed for new emails (no persistence).
+ * ViewModel for the Login/Signup (Auth) screen.
+ * Performs lightweight input validation only; actual authentication is handled by Supabase.
  */
 class AuthViewModel : ViewModel() {
 
@@ -38,8 +34,6 @@ class AuthViewModel : ViewModel() {
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
-
-    private val knownEmails: Set<String> = FakeData.users.map { it.email }.toSet()
 
     fun setEmail(value: String) {
         _email.update { value }
@@ -66,27 +60,19 @@ class AuthViewModel : ViewModel() {
     }
 
     /**
-     * Validates credentials against FakeData.users. Returns [AuthResult.Success]
-     * if a user exists with this email and password equals [DEMO_PASSWORD].
+     * Validates that sign-in fields are present before network auth.
      */
     fun signIn(): AuthResult {
         val e = _email.value
         val p = _password.value
         if (e.isBlank()) return AuthResult.Error("Enter your email").also { setError(it) }
         if (p.isBlank()) return AuthResult.Error("Enter your password").also { setError(it) }
-        val user = FakeData.users.find { it.email.equals(e.trim(), ignoreCase = true) }
-            ?: return AuthResult.Error("No account found for this email").also { setError(it) }
-        return if (p == DEMO_PASSWORD) {
-            _errorMessage.update { null }
-            AuthResult.Success
-        } else {
-            AuthResult.Error("Incorrect password").also { setError(it) }
-        }
+        _errorMessage.update { null }
+        return AuthResult.Success
     }
 
     /**
-     * Validates sign-up fields. Returns [AuthResult.Success] if username, email, and password
-     * are non-blank and email is not already in FakeData (no persistence for new users).
+     * Validates sign-up fields before network auth.
      */
     fun signUp(): AuthResult {
         val u = _username.value
@@ -96,9 +82,6 @@ class AuthViewModel : ViewModel() {
         if (e.isBlank()) return AuthResult.Error("Enter your email").also { setError(it) }
         if (p.isBlank()) return AuthResult.Error("Enter a password").also { setError(it) }
         if (p.length < 4) return AuthResult.Error("Password must be at least 4 characters").also { setError(it) }
-        if (knownEmails.any { it.equals(e.trim(), ignoreCase = true) }) {
-            return AuthResult.Error("An account with this email already exists").also { setError(it) }
-        }
         _errorMessage.update { null }
         return AuthResult.Success
     }
@@ -106,8 +89,4 @@ class AuthViewModel : ViewModel() {
     private fun setError(result: AuthResult.Error) {
         _errorMessage.update { result.message }
     }
-
-    /** Demo credentials for testing / prefill: list of (email, password) for FakeData users. */
-    fun getDemoCredentials(): List<Pair<String, String>> =
-        FakeData.users.map { it.email to DEMO_PASSWORD }
 }

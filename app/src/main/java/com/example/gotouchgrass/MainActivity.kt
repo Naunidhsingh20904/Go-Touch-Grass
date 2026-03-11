@@ -22,12 +22,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.example.gotouchgrass.ui.explore.ExploreScreen
 import com.example.gotouchgrass.ui.explore.ExploreViewModel
 import com.google.android.libraries.places.api.Places
@@ -44,13 +46,19 @@ import com.example.gotouchgrass.ui.screens.ProfileViewModel
 import com.example.gotouchgrass.ui.settings.SettingsViewModel
 import com.example.gotouchgrass.ui.stats.StatsScreen
 import com.example.gotouchgrass.ui.stats.StatsViewModel
+import com.example.gotouchgrass.data.auth.AuthService
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.auth.Auth
+import kotlinx.coroutines.launch
 
 val supabase = createSupabaseClient(
     supabaseUrl = "https://pfpjfczpztwqcicxryoy.supabase.co",
     supabaseKey = "sb_publishable_ch0S89n_RpY33Y6KIUxPSg_Ox2mSuyd"
-) { install(Postgrest) }
+) {
+    install(Postgrest)
+    install(Auth)
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,8 +93,11 @@ fun GoTouchGrassApp() {
     var isAuthenticated by rememberSaveable { mutableStateOf(false) }
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.MAP) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var authError by rememberSaveable { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current.applicationContext
+    val coroutineScope = rememberCoroutineScope()
+    val authService = remember { AuthService(supabase) }
     val searchViewModel = remember { SearchViewModel() }
     val exploreViewModel = remember { ExploreViewModel() }
     val statsViewModel = remember { StatsViewModel() }
@@ -100,19 +111,50 @@ fun GoTouchGrassApp() {
         }
     }
 
+    LaunchedEffect(authService) {
+        authService.getCurrentUser().onSuccess { user ->
+            isAuthenticated = user != null
+        }
+    }
+
     if (!isAuthenticated) {
         AuthScreen(
             viewModel = authViewModel,
-            onSignIn = { _, _ ->
-                isAuthenticated = true
+            onSignIn = { email, password ->
+                coroutineScope.launch {
+                    authService.signIn(email, password)
+                        .onSuccess {
+                            authError = null
+                            isAuthenticated = true
+                        }
+                        .onFailure { error ->
+                            authError = error.message
+                        }
+                }
             },
-            onSignUp = { _, _, _ ->
-                isAuthenticated = true
+            onSignUp = { username, email, password ->
+                coroutineScope.launch {
+                    authService.signUp(email, password, username)
+                        .onSuccess {
+                            authError = null
+                            isAuthenticated = true
+                        }
+                        .onFailure { error ->
+                            authError = error.message
+                        }
+                }
             },
             onForgotPassword = {
                 // TODO: Implement forgot password
             }
         )
+        if (!authError.isNullOrBlank()) {
+            Text(
+                text = authError ?: "Authentication failed",
+                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+        }
     } else {
         if (showSettings) {
             // Settings screen is accessed from Profile, not from bottom navigation
@@ -120,7 +162,16 @@ fun GoTouchGrassApp() {
                 Box(Modifier.padding(innerPadding)) {
                     SettingsScreen(
                         viewModel = settingsViewModel,
-                        onBackClick = { showSettings = false }
+                        onBackClick = { showSettings = false },
+                        onLogoutClick = {
+                            coroutineScope.launch {
+                                authService.signOut()
+                                isAuthenticated = false
+                                showSettings = false
+                                currentDestination = AppDestinations.MAP
+                                authError = null
+                            }
+                        }
                     )
                 }
             }
