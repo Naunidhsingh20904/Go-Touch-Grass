@@ -44,6 +44,13 @@ import com.example.gotouchgrass.ui.screens.ProfileViewModel
 import com.example.gotouchgrass.ui.settings.SettingsViewModel
 import com.example.gotouchgrass.ui.stats.StatsScreen
 import com.example.gotouchgrass.ui.stats.StatsViewModel
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.postgrest.Postgrest
+
+val supabase = createSupabaseClient(
+    supabaseUrl = "https://pfpjfczpztwqcicxryoy.supabase.co",
+    supabaseKey = "sb_publishable_ch0S89n_RpY33Y6KIUxPSg_Ox2mSuyd"
+) { install(Postgrest) }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -145,6 +152,7 @@ fun GoTouchGrassApp() {
                                 viewModel = profileViewModel,
                                 onSettingsClick = { showSettings = true }
                             )
+
                             AppDestinations.MAP -> MapScreen()
                         }
                     }
