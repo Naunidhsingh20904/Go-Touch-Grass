@@ -107,7 +107,7 @@ class AuthService(
         supabaseClient.auth.currentUserOrNull()
     }.getOrNull()
 
-    // Best-effort profile creation so auth success is not blocked by profile table drift/RLS.
+    // Best-effort profile creation so auth success is not blocked by profile table drift/RLS (function created by GPT-5.3-Codex)
     private suspend fun ensureUserProfile(
         authUserId: String,
         email: String,
