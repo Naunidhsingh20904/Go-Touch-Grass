@@ -55,7 +55,7 @@ class GoTouchGrassRepository(
 
     private fun ChallengeRow.toExploreChallengeItem(progress: ChallengeProgressRow?): ExploreChallengeItem {
         val progressValue = progress?.progressValue ?: 0.0
-        val targetValue = extractTargetValue(ruleConfigJson) ?: 1.0
+        val targetValue = extractTargetValue(ruleConfigJson.toString()) ?: 1.0
         val progressFraction = (progressValue / targetValue).coerceIn(0.0, 1.0).toFloat()
         val type =
             runCatching { ChallengeType.valueOf(challengeType) }.getOrDefault(ChallengeType.VISIT)
