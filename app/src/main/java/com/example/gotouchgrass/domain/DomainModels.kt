@@ -11,11 +11,6 @@ data class GeoCell(
     val hash: String // e.g. geohash or H3 index
 )
 
-data class TimeRange(
-    val startIso: String,
-    val endIso: String?
-)
-
 @JvmInline
 value class RarityScore(val value: Double)
 

@@ -113,9 +113,14 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
                     style = MaterialTheme.typography.titleMedium
                 )
             }
+            if (viewModel.dailyChallenges.isEmpty()) {
+                Text(
+                    text = "No daily challenges found.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             viewModel.dailyChallenges.forEach { cardData ->
-                ChallengeCard(
-                    card = cardData)
+                ChallengeCard(card = cardData)
             }
         }
 
@@ -136,9 +141,14 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
                     style = MaterialTheme.typography.titleMedium
                 )
             }
+            if (viewModel.weeklyChallenges.isEmpty()) {
+                Text(
+                    text = "No weekly challenges found.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             viewModel.weeklyChallenges.forEach { cardData ->
-                ChallengeCard(
-                    card = cardData)
+                ChallengeCard(card = cardData)
             }
         }
 
@@ -159,11 +169,14 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
                     style = MaterialTheme.typography.titleMedium
                 )
             }
-            viewModel.curatedRoutes.forEach { cardData ->
-                RouteCard(
-                    card = cardData,
-                    onClick = { selectedRoute = cardData }
+            if (viewModel.curatedRoutes.isEmpty()) {
+                Text(
+                    text = "No curated routes found.",
+                    style = MaterialTheme.typography.bodySmall
                 )
+            }
+            viewModel.curatedRoutes.forEach { cardData ->
+                RouteCard(card = cardData, onClick = { selectedRoute = cardData })
             }
         }
 
@@ -403,13 +416,5 @@ fun RouteCard(
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ExploreScreenPreview() {
-    GoTouchGrassTheme {
-        ExploreScreen(viewModel = ExploreViewModel())
     }
 }

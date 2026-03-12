@@ -46,7 +46,9 @@ import com.example.gotouchgrass.ui.screens.ProfileViewModel
 import com.example.gotouchgrass.ui.settings.SettingsViewModel
 import com.example.gotouchgrass.ui.stats.StatsScreen
 import com.example.gotouchgrass.ui.stats.StatsViewModel
+import com.example.gotouchgrass.data.GoTouchGrassRepository
 import com.example.gotouchgrass.data.auth.AuthService
+import com.example.gotouchgrass.data.supabase.SupabaseDataSource
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.auth.Auth
@@ -91,6 +93,7 @@ fun GoTouchGrassAppPreview() {
 @Composable
 fun GoTouchGrassApp() {
     var isAuthenticated by rememberSaveable { mutableStateOf(false) }
+    var currentUserId by rememberSaveable { mutableStateOf<String?>(null) }
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.MAP) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var authError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -98,8 +101,12 @@ fun GoTouchGrassApp() {
     val context = LocalContext.current.applicationContext
     val coroutineScope = rememberCoroutineScope()
     val authService = remember { AuthService(supabase) }
+    val dataSource = remember { SupabaseDataSource(supabase) }
+    val repository = remember { GoTouchGrassRepository(dataSource) }
     val searchViewModel = remember { SearchViewModel() }
-    val exploreViewModel = remember { ExploreViewModel() }
+    val exploreViewModel = remember(currentUserId) {
+        currentUserId?.let { ExploreViewModel(currentUserId = it, repository = repository) }
+    }
     val statsViewModel = remember { StatsViewModel() }
     val profileViewModel = remember { ProfileViewModel() }
     val authViewModel = remember { AuthViewModel() }
@@ -114,6 +121,7 @@ fun GoTouchGrassApp() {
     LaunchedEffect(authService) {
         authService.getCurrentUser().onSuccess { user ->
             isAuthenticated = user != null
+            currentUserId = user?.id
         }
     }
 
@@ -123,8 +131,9 @@ fun GoTouchGrassApp() {
             onSignIn = { email, password ->
                 coroutineScope.launch {
                     authService.signIn(email, password)
-                        .onSuccess {
+                        .onSuccess { user ->
                             authError = null
+                            currentUserId = user.id
                             isAuthenticated = true
                         }
                         .onFailure { error ->
@@ -135,8 +144,9 @@ fun GoTouchGrassApp() {
             onSignUp = { username, email, password ->
                 coroutineScope.launch {
                     authService.signUp(email, password, username)
-                        .onSuccess {
+                        .onSuccess { user ->
                             authError = null
+                            currentUserId = user.id
                             isAuthenticated = true
                         }
                         .onFailure { error ->
@@ -166,6 +176,7 @@ fun GoTouchGrassApp() {
                         onLogoutClick = {
                             coroutineScope.launch {
                                 authService.signOut()
+                                currentUserId = null
                                 isAuthenticated = false
                                 showSettings = false
                                 currentDestination = AppDestinations.MAP
@@ -197,7 +208,13 @@ fun GoTouchGrassApp() {
                     Box(Modifier.padding(innerPadding)) {
                         when (currentDestination) {
                             AppDestinations.SEARCH -> SearchScreen(viewModel = searchViewModel)
-                            AppDestinations.EXPLORE -> ExploreScreen(viewModel = exploreViewModel)
+                            AppDestinations.EXPLORE -> {
+                                if (exploreViewModel != null) {
+                                    ExploreScreen(viewModel = exploreViewModel)
+                                } else {
+                                    Text("Loading user data...")
+                                }
+                            }
                             AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
                             AppDestinations.PROFILE -> ProfileScreen(
                                 viewModel = profileViewModel,
