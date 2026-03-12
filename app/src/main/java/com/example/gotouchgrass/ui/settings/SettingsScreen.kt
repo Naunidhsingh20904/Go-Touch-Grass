@@ -23,7 +23,8 @@ import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(),
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onLogoutClick: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -98,7 +99,10 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Log Out Button
-        LogoutButton(text = viewModel.logoutButtonText)
+        LogoutButton(
+            text = viewModel.logoutButtonText,
+            onClick = onLogoutClick
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -238,9 +242,12 @@ fun SettingsItem(
 }
 
 @Composable
-fun LogoutButton(text: String) {
+fun LogoutButton(
+    text: String,
+    onClick: () -> Unit = {}
+) {
     Button(
-        onClick = { },
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
@@ -279,6 +286,9 @@ fun SettingsFooter(version: String, tagline: String) {
 @Composable
 fun SettingsScreenPreview() {
     GoTouchGrassTheme {
-        SettingsScreen(onBackClick = {})
+        SettingsScreen(
+            onBackClick = {},
+            onLogoutClick = {}
+        )
     }
 }
