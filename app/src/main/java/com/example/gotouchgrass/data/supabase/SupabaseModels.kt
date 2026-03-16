@@ -70,6 +70,38 @@ data class ChallengeProgressRow(
 )
 
 @Serializable
+data class ChallengeXpAwardInsert(
+    @SerialName("user_id") val userId: Long,
+    @SerialName("challenge_id") val challengeId: Long,
+    @SerialName("awarded_xp") val awardedXp: Long
+)
+
+@Serializable
+data class UserXpUpdate(
+    @SerialName("xp_total") val xpTotal: Long
+)
+
+@Serializable
+data class SearchActivityRow(
+    val id: Long,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("user_id") val userId: Long,
+    @SerialName("query_text") val queryText: String,
+    @SerialName("selected_place_id") val selectedPlaceId: String? = null,
+    @SerialName("selected_title") val selectedTitle: String? = null,
+    val source: String
+)
+
+@Serializable
+data class SearchActivityInsert(
+    @SerialName("user_id") val userId: Long,
+    @SerialName("query_text") val queryText: String,
+    @SerialName("selected_place_id") val selectedPlaceId: String? = null,
+    @SerialName("selected_title") val selectedTitle: String? = null,
+    val source: String
+)
+
+@Serializable
 data class RouteRow(
     val id: Long,
     @SerialName("created_at") val createdAt: String,

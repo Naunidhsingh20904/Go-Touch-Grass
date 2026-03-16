@@ -160,7 +160,10 @@ fun SearchScreen(viewModel: SearchViewModel) {
                     items = viewModel.searchResults,
                     key = { index, item -> "search_${item.id}_$index" }
                 ) { _, cardData ->
-                    LocationCard(card = cardData)
+                    LocationCard(
+                        card = cardData,
+                        onClick = { viewModel.onSearchResultSelected(cardData) }
+                    )
                 }
             }
 
@@ -188,7 +191,7 @@ fun SearchScreen(viewModel: SearchViewModel) {
                                 key = { search -> search }
                             ) { search ->
                                 Surface(
-                                    onClick = { viewModel.onQueryChange(search) },
+                                    onClick = { viewModel.onRecentSearchSelected(search) },
                                     shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
                                     color = SandLight
                                 ) {
@@ -232,7 +235,10 @@ fun SearchScreen(viewModel: SearchViewModel) {
                     items = viewModel.trendingLocations,
                     key = { index, item -> "trending_${item.id}_$index" }
                 ) { _, cardData ->
-                    LocationCard(card = cardData)
+                    LocationCard(
+                        card = cardData,
+                        onClick = { viewModel.onTrendingSelected(cardData) }
+                    )
                 }
 
             }
@@ -243,9 +249,11 @@ fun SearchScreen(viewModel: SearchViewModel) {
 @Composable
 fun LocationCard(
     modifier: Modifier = Modifier,
-    card: LocationCardData
+    card: LocationCardData,
+    onClick: (() -> Unit)? = null
 ) {
     ElevatedCard(
+        onClick = { onClick?.invoke() },
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         modifier = modifier
             .fillMaxWidth()

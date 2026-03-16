@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.example.gotouchgrass.ui.explore.ExploreScreen
 import com.example.gotouchgrass.ui.explore.ExploreViewModel
 import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.net.PlacesClient
 import com.example.gotouchgrass.ui.screens.AuthScreen
 import com.example.gotouchgrass.ui.screens.AuthViewModel
 import com.example.gotouchgrass.ui.screens.ProfileScreen
@@ -97,13 +98,23 @@ fun GoTouchGrassApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.MAP) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var authError by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedMapPlaceId by rememberSaveable { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current.applicationContext
     val coroutineScope = rememberCoroutineScope()
     val authService = remember { AuthService(supabase) }
     val dataSource = remember { SupabaseDataSource(supabase) }
     val repository = remember { GoTouchGrassRepository(dataSource) }
-    val searchViewModel = remember { SearchViewModel() }
+    val searchViewModel = remember(currentUserId) {
+        SearchViewModel(
+            currentUserId = currentUserId,
+            repository = repository,
+            onSelectPlace = { placeId ->
+                selectedMapPlaceId = placeId
+                currentDestination = AppDestinations.MAP
+            }
+        )
+    }
     val exploreViewModel = remember(currentUserId) {
         currentUserId?.let { ExploreViewModel(currentUserId = it, repository = repository) }
     }
@@ -111,10 +122,13 @@ fun GoTouchGrassApp() {
     val profileViewModel = remember { ProfileViewModel() }
     val authViewModel = remember { AuthViewModel() }
     val settingsViewModel = remember { SettingsViewModel() }
+    var placesClient by remember { mutableStateOf<PlacesClient?>(null) }
 
     LaunchedEffect(searchViewModel, context) {
         if (Places.isInitialized()) {
-            searchViewModel.initPlaces(Places.createClient(context))
+            val client = Places.createClient(context)
+            placesClient = client
+            searchViewModel.initPlaces(client)
         }
     }
 
@@ -221,7 +235,9 @@ fun GoTouchGrassApp() {
                                 onSettingsClick = { showSettings = true }
                             )
 
-                            AppDestinations.MAP -> MapScreen()
+                            AppDestinations.MAP -> MapScreen(selectedPlaceId = selectedMapPlaceId, placesClient = placesClient, repository = repository) {
+                                selectedMapPlaceId = null
+                            }
                         }
                     }
                 }
