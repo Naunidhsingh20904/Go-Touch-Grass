@@ -3,6 +3,7 @@ package com.example.gotouchgrass.data.supabase
 import com.example.gotouchgrass.domain.User
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Order
 
 class SupabaseDataSource(
     private val supabaseClient: SupabaseClient
@@ -15,8 +16,10 @@ class SupabaseDataSource(
         const val TABLE_LANDMARKS = "landmark"
         const val TABLE_CHALLENGES = "challenge"
         const val TABLE_CHALLENGE_PROGRESS = "challenge_progress"
+        const val TABLE_CHALLENGE_XP_AWARD = "challenge_xp_award"
         const val TABLE_ROUTES = "route"
         const val TABLE_ROUTE_STOPS = "route_stop"
+        const val TABLE_SEARCH_ACTIVITY = "search_activity"
     }
 
     // user operations
@@ -56,6 +59,49 @@ class SupabaseDataSource(
     suspend fun fetchChallengeProgress(userId: Long): List<ChallengeProgressRow> =
         supabaseClient.from(TABLE_CHALLENGE_PROGRESS).select().decodeList<ChallengeProgressRow>()
             .filter { it.userId == userId }
+
+    suspend fun upsertChallengeProgress(row: ChallengeProgressRow) {
+        supabaseClient.from(TABLE_CHALLENGE_PROGRESS)
+            .upsert(row) { onConflict = "user_id,challenge_id" }
+    }
+
+    suspend fun tryInsertChallengeXpAward(row: ChallengeXpAwardInsert): Boolean {
+        val result = runCatching {
+            supabaseClient.from(TABLE_CHALLENGE_XP_AWARD).insert(row)
+        }
+        return result.isSuccess
+    }
+
+    suspend fun updateUserXpTotal(userId: Long, newXpTotal: Long) {
+        supabaseClient.from(TABLE_USERS).update(UserXpUpdate(newXpTotal)) {
+            filter {
+                eq("id", userId)
+            }
+        }
+    }
+
+    suspend fun insertSearchActivity(row: SearchActivityInsert) {
+        supabaseClient.from(TABLE_SEARCH_ACTIVITY).insert(row)
+    }
+
+    suspend fun fetchRecentSearchActivity(userId: Long, limit: Int): List<SearchActivityRow> {
+        val safeLimit = limit.coerceAtLeast(1)
+        return supabaseClient.from(TABLE_SEARCH_ACTIVITY).select {
+            filter {
+                eq("user_id", userId)
+            }
+            order("created_at", Order.DESCENDING)
+            limit(safeLimit.toLong())
+        }.decodeList()
+    }
+
+    suspend fun fetchRecentGlobalSearchActivity(limit: Int): List<SearchActivityRow> {
+        val safeLimit = limit.coerceAtLeast(1)
+        return supabaseClient.from(TABLE_SEARCH_ACTIVITY).select {
+            order("created_at", Order.DESCENDING)
+            limit(safeLimit.toLong())
+        }.decodeList()
+    }
 
     suspend fun fetchRoutes(): List<RouteRow> =
         supabaseClient.from(TABLE_ROUTES).select().decodeList<RouteRow>()
