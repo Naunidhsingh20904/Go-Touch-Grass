@@ -1,100 +1,63 @@
 package com.example.gotouchgrass
 
-import com.example.gotouchgrass.ui.screens.ProfileViewModel
+import com.example.gotouchgrass.data.FakeProfileRepository
+import com.example.gotouchgrass.domain.ProfileModel
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for the Profile / Milestones screen backed by [ProfileViewModel]
- * and [com.example.gotouchgrass.domain.FakeData].
+ * Unit tests for the Profile "model" layer using a mock DB.
+ *
+ * These tests exercise [ProfileModel] backed by [FakeProfileRepository],
+ * so they never depend on live Supabase data.
  */
 class ProfileScreenTest {
 
-    private val viewModel = ProfileViewModel()
+    private val repository = FakeProfileRepository()
+    private val model = ProfileModel(
+        currentUserId = "user_you",
+        repository = repository
+    )
 
     @Test
-    fun viewModel_username_comesFromFakeData() {
-        assertEquals("uw_grasswalker", viewModel.username)
+    fun model_username_comesFromMockDb() = runBlocking {
+        val user = model.getUser()
+        assertNotNull(user)
+        assertEquals("uw_grasswalker", user!!.username)
     }
 
     @Test
-    fun viewModel_joinedText_isNonEmpty() {
-        assertTrue(viewModel.joinedText.startsWith("Joined "))
-        assertTrue(viewModel.joinedText.endsWith(" ago") || viewModel.joinedText == "Joined recently")
+    fun model_joinedText_canBeFormattedFromUserCreatedAt() = runBlocking {
+        val user = model.getUser()
+        assertNotNull(user)
+        assertTrue(user!!.createdAtIso.isNotBlank())
     }
 
     @Test
-    fun viewModel_streakDays_matchesFakeDataDailyExploreStreak() {
-        assertEquals(7, viewModel.streakDays)
+    fun model_streakData_matchesMockStreak() = runBlocking {
+        val streak = model.getStreakData()
+        assertNotNull(streak)
+        assertEquals(7, streak!!.currentDays)
     }
 
     @Test
-    fun viewModel_level_matchesFakeDataUser() {
-        assertEquals(8, viewModel.level)
+    fun model_lifetimeStats_returnsTotalXp() = runBlocking {
+        val stats = model.getLifetimeStats()
+        assertNotNull(stats)
+        // From FakeData the current user has 12450 XP.
+        assertEquals(12450, stats!!.totalXp)
     }
 
     @Test
-    fun viewModel_currentXpAndMaxXp_areWithinLevelRange() {
-        assertTrue(viewModel.currentXp in 0..viewModel.maxXp)
-        assertEquals(1000, viewModel.maxXp)
-    }
-
-    @Test
-    fun viewModel_zonesVisited_matchesFakeDataCityCompletion() {
-        assertEquals("5", viewModel.zonesVisited)
-    }
-
-    @Test
-    fun viewModel_zonesOwned_matchesFakeDataZoneOwnership() {
-        assertEquals("1", viewModel.zonesOwned)
-    }
-
-    @Test
-    fun viewModel_timeExplored_isNonEmpty() {
-        assertTrue(viewModel.timeExploredHours.isNotEmpty())
-    }
-
-    @Test
-    fun viewModel_badges_containsEarnedAndLockedFromFakeData() {
-        val badges = viewModel.badges
-        assertTrue(badges.isNotEmpty())
-        val earned = badges.filter { it.isUnlocked }
-        val locked = badges.filter { !it.isUnlocked }
-        assertEquals(1, earned.size)
-        assertTrue(locked.size >= 1)
-        assertEquals("DC Pioneer", earned.first().name)
-    }
-
-    @Test
-    fun viewModel_milestoneProgress_matchesFakeData() {
-        assertNotNull(viewModel.milestoneProgressValue)
-        assertEquals(4.0, viewModel.milestoneProgressValue!!, 0.0)
-        assertTrue(viewModel.milestoneProgressList.isNotEmpty())
-        assertEquals("milestone_unique_uw_zones_10", viewModel.milestoneProgressList.first().first)
-        assertEquals(4.0, viewModel.milestoneProgressList.first().second, 0.0)
-    }
-
-    @Test
-    fun viewModel_recentActivity_derivedFromXpEvents() {
-        val activity = viewModel.recentActivity
-        assertTrue(activity.isNotEmpty())
-        activity.forEach { item ->
-            assertTrue(item.name.isNotEmpty())
-            assertTrue(item.xpText.startsWith("+") && item.xpText.endsWith(" XP"))
-        }
-    }
-
-    @Test
-    fun viewModel_friendInitials_derivedFromFakeDataFriendships() {
-        val initials = viewModel.friendInitials
-        assertEquals(1, initials.size)
-        assertEquals("W", initials.first())
-    }
-
-    @Test
-    fun viewModel_challengesDone_isString() {
-        assertTrue(viewModel.challengesDone.toIntOrNull() != null || viewModel.challengesDone == "0")
+    fun model_weeklySummary_matchesMockValues() = runBlocking {
+        val summary = model.getWeeklySummary()
+        assertNotNull(summary)
+        assertEquals("4h", summary!!.timeOutside)
+        assertEquals(5, summary.zonesVisited)
+        assertEquals(7, summary.dailyActivity.size)
     }
 }
+

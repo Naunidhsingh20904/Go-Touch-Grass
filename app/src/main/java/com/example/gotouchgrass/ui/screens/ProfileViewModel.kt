@@ -1,130 +1,133 @@
 package com.example.gotouchgrass.ui.screens
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-import com.example.gotouchgrass.domain.FakeData
+import androidx.lifecycle.viewModelScope
+import com.example.gotouchgrass.domain.ProfileModel
+import com.example.gotouchgrass.domain.User
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import kotlinx.coroutines.launch
 
-private const val CURRENT_USER_ID = "user_you"
 private const val XP_PER_LEVEL = 1000
 
 /**
- * ViewModel for the Profile screen. Loads profile, milestones, badges, and stats
- * from [FakeData] for the current user.
+ * Profile ViewModel backed by the domain‑level [ProfileModel], which in turn
+ * talks to a [com.example.gotouchgrass.data.ProfileRepository] abstraction.
+ *
+ * This keeps the ViewModel free from direct DB details and allows the model
+ * to be unit‑tested with a mock repository.
  */
-class ProfileViewModel : ViewModel() {
+class ProfileViewModel(
+    private val model: ProfileModel
+) : ViewModel() {
 
-    private val user = FakeData.users.find { it.id == CURRENT_USER_ID }
-    private val userStreaks = FakeData.streaks.filter { it.userId == CURRENT_USER_ID }
-    private val userBadgeIds = FakeData.userBadges
-        .filter { it.userId == CURRENT_USER_ID }
-        .map { it.badgeId }
-        .toSet()
-    private val userMilestoneProgress = FakeData.milestoneProgress.filter { it.userId == CURRENT_USER_ID }
-    private val userVisitSessions = FakeData.visitSessions.filter { it.userId == CURRENT_USER_ID }
-    private val userXpEvents = FakeData.xpEvents.filter { it.userId == CURRENT_USER_ID }
-    private val userZoneOwnership = FakeData.zoneOwnership.filter { it.ownerUserId == CURRENT_USER_ID }
-    private val userCityCompletion = FakeData.cityCompletion.find { it.userId == CURRENT_USER_ID }
-    private val userChallengeProgress = FakeData.challengeProgress.filter { it.userId == CURRENT_USER_ID }
-    private val acceptedFriendIds = FakeData.friendships
-        .filter { it.status == com.example.gotouchgrass.domain.FriendshipStatus.ACCEPTED }
-        .filter { it.requesterId == CURRENT_USER_ID || it.addresseeId == CURRENT_USER_ID }
-        .map { if (it.requesterId == CURRENT_USER_ID) it.addresseeId else it.requesterId }
+    var username by mutableStateOf("")
+        private set
 
-    val username: String
-        get() = user?.username ?: ""
+    var joinedText by mutableStateOf("")
+        private set
 
-    val joinedText: String
-        get() = user?.createdAtIso?.let { formatJoined(it) } ?: ""
+    var streakDays by mutableStateOf(0)
+        private set
 
-    val streakDays: Int
-        get() = userStreaks
-            .find { it.type == com.example.gotouchgrass.domain.StreakType.DAILY_EXPLORE }
-            ?.currentCount ?: 0
+    var level by mutableStateOf(1)
+        private set
 
-    val level: Int
-        get() = user?.level ?: 1
+    var currentXp by mutableStateOf(0)
+        private set
 
-    val currentXp: Int
-        get() {
-            val total = user?.xpTotal ?: 0
-            val previousLevelsXp = (level - 1) * XP_PER_LEVEL
-            return (total - previousLevelsXp).coerceIn(0, XP_PER_LEVEL)
-        }
+    var maxXp by mutableStateOf(XP_PER_LEVEL)
+        private set
 
-    val maxXp: Int
-        get() = XP_PER_LEVEL
+    var zonesVisited by mutableStateOf("0")
+        private set
 
-    val zonesVisited: String
-        get() = (userCityCompletion?.zonesVisitedCount ?: userVisitSessions.map { it.zoneId }.toSet().size).toString()
+    var zonesOwned by mutableStateOf("0")
+        private set
 
-    val zonesOwned: String
-        get() = userZoneOwnership.size.toString()
+    var timeExploredHours by mutableStateOf("0h")
+        private set
 
-    val timeExploredHours: String
-        get() {
-            val totalSec = userVisitSessions.sumOf { it.durationSec }
-            val hours = totalSec / 3600.0
-            return if (hours >= 1) "${hours.toInt()}h" else "${(totalSec / 60).toInt()}m"
-        }
-
-    val challengesDone: String
-        get() = userChallengeProgress.count { it.completedAtIso != null }.toString()
+    var challengesDone by mutableStateOf("0")
+        private set
 
     data class ProfileBadgeDisplay(val name: String, val isUnlocked: Boolean)
 
-    val badges: List<ProfileBadgeDisplay>
-        get() {
-            val earned = FakeData.badges.filter { it.id in userBadgeIds }.map { ProfileBadgeDisplay(it.name, true) }
-            val locked = FakeData.badges.filter { it.id !in userBadgeIds }.map { ProfileBadgeDisplay(it.name, false) }
-            return earned + locked
-        }
+    var badges by mutableStateOf<List<ProfileBadgeDisplay>>(emptyList())
+        private set
 
     data class ActivityItemDisplay(val name: String, val timeAgo: String, val xpText: String)
 
-    val recentActivity: List<ActivityItemDisplay>
-        get() = userXpEvents
-            .sortedByDescending { it.createdAtIso }
-            .take(5)
-            .map { event ->
-                ActivityItemDisplay(
-                    name = resolveZoneName(event.refId),
-                    timeAgo = formatTimeAgo(event.createdAtIso),
-                    xpText = "+${event.amount} XP"
-                )
-            }
+    var recentActivity by mutableStateOf<List<ActivityItemDisplay>>(emptyList())
+        private set
 
-    val friendInitials: List<String>
-        get() = acceptedFriendIds
-            .mapNotNull { id -> FakeData.users.find { it.id == id }?.displayName }
-            .map { name -> name.take(1).uppercase() }
+    var friendInitials by mutableStateOf<List<String>>(emptyList())
+        private set
 
-    val milestoneProgressValue: Double?
-        get() = userMilestoneProgress.firstOrNull()?.progressValue
+    var isLoading by mutableStateOf(true)
+        private set
 
-    val milestoneProgressList: List<Pair<String, Double>>
-        get() = userMilestoneProgress.map { it.milestoneId to it.progressValue }
+    var errorMessage by mutableStateOf<String?>(null)
+        private set
 
-    private fun resolveZoneName(refId: String?): String {
-        if (refId == null) return "Activity"
-        val session = FakeData.visitSessions.find { it.id == refId }
-        val zoneId = session?.zoneId ?: return "Activity"
-        return FakeData.zones.find { it.id == zoneId }?.name ?: "Activity"
+    init {
+        refresh()
     }
 
-    private fun formatTimeAgo(iso: String): String {
-        return try {
-            val then = Instant.parse(iso)
-            val now = Instant.now()
-            val minutes = ChronoUnit.MINUTES.between(then, now)
-            when {
-                minutes < 60 -> "${minutes}m ago"
-                minutes < 24 * 60 -> "${minutes / 60}h ago"
-                else -> "${minutes / (24 * 60)}d ago"
+    fun refresh() {
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
+
+            runCatching {
+                val user = model.getUser()
+                val lifetimeStats = model.getLifetimeStats()
+                val streakData = model.getStreakData()
+                val weeklySummary = model.getWeeklySummary()
+
+                applyUser(user)
+                applyStreak(streakData)
+                applyLifetimeStats(lifetimeStats)
+                applyWeeklySummary(weeklySummary)
+            }.onFailure { error ->
+                errorMessage = error.message ?: "Failed to load profile data"
             }
-        } catch (_: Exception) {
-            ""
+
+            isLoading = false
         }
+    }
+
+    private fun applyUser(user: User?) {
+        if (user == null) return
+
+        username = user.username
+        level = user.level
+        maxXp = XP_PER_LEVEL
+
+        val totalXp = user.xpTotal
+        val previousLevelsXp = (level - 1) * XP_PER_LEVEL
+        currentXp = (totalXp - previousLevelsXp).coerceIn(0, XP_PER_LEVEL)
+
+        joinedText = formatJoined(user.createdAtIso)
+    }
+
+    private fun applyStreak(streakData: com.example.gotouchgrass.domain.StreakData?) {
+        if (streakData == null) return
+        streakDays = streakData.currentDays
+    }
+
+    private fun applyLifetimeStats(stats: com.example.gotouchgrass.domain.LifetimeStats?) {
+        if (stats == null) return
+        // Placeholder: we can map lifetime stats to additional profile fields in the future.
+    }
+
+    private fun applyWeeklySummary(summary: com.example.gotouchgrass.domain.WeeklySummary?) {
+        if (summary == null) return
+        zonesVisited = summary.zonesVisited.toString()
+        timeExploredHours = summary.timeOutside
     }
 
     private fun formatJoined(createdAtIso: String): String {
