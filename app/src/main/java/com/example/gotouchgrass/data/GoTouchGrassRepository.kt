@@ -235,9 +235,9 @@ class GoTouchGrassRepository(
             ?: return@runCatching LifetimeStats(totalXp = 0, coinsEarned = 0, totalDistanceKm = 0f, citiesExplored = 0)
         LifetimeStats(
             totalXp = user.xpTotal,
-            coinsEarned = 0,
-            totalDistanceKm = 0f,
-            citiesExplored = 0
+            coinsEarned = 0,        // TODO: fetch from coins table when available
+            totalDistanceKm = 0f,   // TODO: compute from visit_session table when available
+            citiesExplored = 0      // TODO: compute from city_completion table when available
         )
     }
 
@@ -280,7 +280,7 @@ class GoTouchGrassRepository(
         WeeklySummary(
             timeOutside = timeOutside,
             zonesVisited = zonesVisited,
-            xpEarned = 0,
+            xpEarned = 0,           // TODO: compute from xp_event table when available
             dailyActivity = dailyActivity
         )
     }
