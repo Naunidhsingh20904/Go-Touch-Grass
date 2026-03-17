@@ -4,8 +4,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
-// supabase models should mirror DB columns and types, not domain model shape
-
 @Serializable
 data class UserRow(
     val id: Long,
@@ -121,4 +119,47 @@ data class RouteStopRow(
     @SerialName("order_index") val orderIndex: Int,
     @SerialName("landmark_id") val landmarkId: Long? = null,
     @SerialName("hint_text") val hintText: String? = null
+)
+
+@Serializable
+data class UserSettingsRow(
+    val id: Long,
+    @SerialName("user_id") val userId: Long,
+    @SerialName("notifications_enabled") val notificationsEnabled: Boolean = true,
+    @SerialName("sound_effects_enabled") val soundEffectsEnabled: Boolean = true,
+    @SerialName("dark_mode_enabled") val darkModeEnabled: Boolean = false,
+    @SerialName("location_services_enabled") val locationServicesEnabled: Boolean = true
+)
+
+@Serializable
+data class UserSettingsUpsert(
+    @SerialName("user_id") val userId: Long,
+    @SerialName("notifications_enabled") val notificationsEnabled: Boolean,
+    @SerialName("sound_effects_enabled") val soundEffectsEnabled: Boolean,
+    @SerialName("dark_mode_enabled") val darkModeEnabled: Boolean,
+    @SerialName("location_services_enabled") val locationServicesEnabled: Boolean
+)
+
+@Serializable
+data class StreakRow(
+    val id: Long,
+    @SerialName("user_id") val userId: Long,
+    val type: String,
+    @SerialName("current_count") val currentCount: Int,
+    @SerialName("best_count") val bestCount: Int,
+    @SerialName("last_counted_date") val lastCountedDate: String? = null
+)
+
+@Serializable
+data class VisitSessionRow(
+    val id: Long,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("user_id") val userId: Long,
+    @SerialName("zone_id") val zoneId: Long? = null,
+    @SerialName("started_at") val startedAt: String,
+    @SerialName("ended_at") val endedAt: String? = null,
+    @SerialName("duration_sec") val durationSec: Long,
+    @SerialName("confidence_score") val confidenceScore: Double = 1.0,
+    val source: String,
+    @SerialName("is_study_session") val isStudySession: Boolean = false
 )

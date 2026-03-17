@@ -118,10 +118,14 @@ fun GoTouchGrassApp() {
     val exploreViewModel = remember(currentUserId) {
         currentUserId?.let { ExploreViewModel(currentUserId = it, repository = repository) }
     }
-    val statsViewModel = remember { StatsViewModel() }
+    val statsViewModel = remember(currentUserId) {
+        StatsViewModel(userId = currentUserId, repository = repository)
+    }
     val profileViewModel = remember { ProfileViewModel() }
     val authViewModel = remember { AuthViewModel() }
-    val settingsViewModel = remember { SettingsViewModel() }
+    val settingsViewModel = remember(currentUserId) {
+        SettingsViewModel(userId = currentUserId, repository = repository)
+    }
     var placesClient by remember { mutableStateOf<PlacesClient?>(null) }
 
     LaunchedEffect(searchViewModel, context) {
