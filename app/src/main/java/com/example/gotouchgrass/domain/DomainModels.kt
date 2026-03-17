@@ -477,5 +477,6 @@ data class LeaderboardData(
     val name: String,
     val level: String,
     val xp: String,
-    val isGoldRank: Boolean
+    val isGoldRank: Boolean,
+    val isCurrentUser: Boolean = false
 )

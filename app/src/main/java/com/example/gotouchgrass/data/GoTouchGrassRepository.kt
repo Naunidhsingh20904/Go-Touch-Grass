@@ -5,14 +5,25 @@ import com.example.gotouchgrass.data.supabase.ChallengeRow
 import com.example.gotouchgrass.data.supabase.RouteRow
 import com.example.gotouchgrass.data.supabase.SearchActivityInsert
 import com.example.gotouchgrass.data.supabase.SupabaseDataSource
+import com.example.gotouchgrass.data.supabase.UserSettingsUpsert
 import com.example.gotouchgrass.domain.ChallengeTimeWindow
 import com.example.gotouchgrass.domain.ChallengeType
 import com.example.gotouchgrass.domain.ExploreChallengeItem
 import com.example.gotouchgrass.domain.ExploreRouteItem
+import com.example.gotouchgrass.domain.LeaderboardData
+import com.example.gotouchgrass.domain.LifetimeStats
 import com.example.gotouchgrass.domain.RouteDifficulty
 import com.example.gotouchgrass.domain.RouteTheme
+import com.example.gotouchgrass.domain.StreakData
 import com.example.gotouchgrass.domain.User
+import com.example.gotouchgrass.domain.UserPreferences
+import com.example.gotouchgrass.domain.WeeklySummary
 import org.json.JSONObject
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 class GoTouchGrassRepository(
     private val dataSource: SupabaseDataSource
@@ -197,5 +208,132 @@ class GoTouchGrassRepository(
             RouteTheme.HIDDEN_STUDY_SPOTS -> "Quiet and hidden study places"
             RouteTheme.CITY_HIGHLIGHTS -> "Top city highlights to explore"
         }
+    }
+
+    suspend fun getUserSettings(userId: String): Result<UserPreferences> = runCatching {
+        val userRow = dataSource.getUserRowByAuthId(userId)
+            ?: return@runCatching defaultPreferences()
+        val settingsRow = dataSource.fetchUserSettings(userRow.id)
+            ?: return@runCatching defaultPreferences()
+        UserPreferences(
+            notificationsEnabled = settingsRow.notificationsEnabled,
+            soundEffectsEnabled = settingsRow.soundEffectsEnabled,
+            darkModeEnabled = settingsRow.darkModeEnabled,
+            locationServicesEnabled = settingsRow.locationServicesEnabled
+        )
+    }
+
+    suspend fun saveUserSettings(userId: String, prefs: UserPreferences): Result<Unit> = runCatching {
+        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching
+        dataSource.upsertUserSettings(
+            UserSettingsUpsert(
+                userId = userRow.id,
+                notificationsEnabled = prefs.notificationsEnabled,
+                soundEffectsEnabled = prefs.soundEffectsEnabled,
+                darkModeEnabled = prefs.darkModeEnabled,
+                locationServicesEnabled = prefs.locationServicesEnabled
+            )
+        )
+    }
+
+    private fun defaultPreferences() = UserPreferences(
+        notificationsEnabled = true,
+        soundEffectsEnabled = true,
+        darkModeEnabled = false,
+        locationServicesEnabled = true
+    )
+
+    suspend fun getLifetimeStats(userId: String): Result<LifetimeStats> = runCatching {
+        val user = dataSource.getUserById(userId).getOrThrow()
+            ?: return@runCatching LifetimeStats(totalXp = 0, coinsEarned = 0, totalDistanceKm = 0f, citiesExplored = 0)
+        LifetimeStats(
+            totalXp = user.xpTotal,
+            coinsEarned = 0,        // TODO: fetch from coins table when available
+            totalDistanceKm = 0f,   // TODO: compute from visit_session table when available
+            citiesExplored = 0      // TODO: compute from city_completion table when available
+        )
+    }
+
+    suspend fun getStreakData(userId: String): Result<StreakData> = runCatching {
+        val userRow = dataSource.getUserRowByAuthId(userId)
+            ?: return@runCatching StreakData(currentDays = 0, bestDays = 0)
+        val row = dataSource.fetchStreakByType(userRow.id, "DAILY_EXPLORE")
+            ?: return@runCatching StreakData(currentDays = 0, bestDays = 0)
+        StreakData(currentDays = row.currentCount, bestDays = row.bestCount)
+    }
+
+    suspend fun getWeeklySummary(userId: String): Result<WeeklySummary> = runCatching {
+        val userRow = dataSource.getUserRowByAuthId(userId)
+            ?: return@runCatching defaultWeeklySummary()
+
+        val weekStartIso = LocalDate.now(ZoneOffset.UTC)
+            .with(DayOfWeek.MONDAY)
+            .atStartOfDay(ZoneOffset.UTC)
+            .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+
+        val sessions = dataSource.fetchWeeklyVisitSessions(userRow.id, weekStartIso)
+        if (sessions.isEmpty()) return@runCatching defaultWeeklySummary()
+
+        val totalSec = sessions.sumOf { it.durationSec }
+        val totalHours = totalSec / 3600.0
+        val timeOutside = if (totalHours < 1) "${totalSec / 60}m" else "%.1fh".format(totalHours)
+
+        val zonesVisited = sessions.mapNotNull { it.zoneId }.distinct().size
+
+        val dailySeconds = LongArray(7)
+        sessions.forEach { session ->
+            val day = runCatching {
+                OffsetDateTime.parse(session.startedAt).dayOfWeek.value - 1
+            }.getOrNull() ?: return@forEach
+            dailySeconds[day] += session.durationSec
+        }
+        val maxSec = dailySeconds.max().takeIf { it > 0 } ?: 1L
+        val dailyActivity = dailySeconds.map { (it.toFloat() / maxSec).coerceIn(0f, 1f) }
+
+        WeeklySummary(
+            timeOutside = timeOutside,
+            zonesVisited = zonesVisited,
+            xpEarned = 0,           // TODO: compute from xp_event table when available
+            dailyActivity = dailyActivity
+        )
+    }
+
+    private fun defaultWeeklySummary() = WeeklySummary(
+        timeOutside = "0h",
+        zonesVisited = 0,
+        xpEarned = 0,
+        dailyActivity = listOf(0f, 0f, 0f, 0f, 0f, 0f, 0f)
+    )
+
+    suspend fun getLeaderboard(currentUserId: String): Result<List<LeaderboardData>> = runCatching {
+        val topUsers = dataSource.fetchLeaderboardUsers(20)
+        val currentUserRow = dataSource.getUserRowByAuthId(currentUserId)
+
+        val entries = topUsers.mapIndexed { index, userRow ->
+            val isCurrentUser = userRow.authUserId == currentUserId
+            LeaderboardData(
+                rank = (index + 1).toString(),
+                name = if (isCurrentUser) "You" else userRow.displayName,
+                level = "Level ${userRow.level}",
+                xp = "%,d XP".format(userRow.xpTotal),
+                isGoldRank = index == 0,
+                isCurrentUser = isCurrentUser
+            )
+        }.toMutableList()
+
+        if (currentUserRow != null && topUsers.none { it.authUserId == currentUserId }) {
+            entries.add(
+                LeaderboardData(
+                    rank = "...",
+                    name = "You",
+                    level = "Level ${currentUserRow.level}",
+                    xp = "%,d XP".format(currentUserRow.xpTotal),
+                    isGoldRank = false,
+                    isCurrentUser = true
+                )
+            )
+        }
+
+        entries
     }
 }

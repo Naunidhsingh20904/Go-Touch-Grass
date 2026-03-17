@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -504,15 +505,36 @@ fun GlobalLeaderboard(
                 }
             }
 
-            // ← CHANGED to loop through viewModel data
-            viewModel.leaderboardEntries.forEach { entry ->
-                LeaderboardEntry(
-                    rank = entry.rank,
-                    name = entry.name,
-                    level = entry.level,
-                    xp = entry.xp,
-                    isGoldRank = entry.isGoldRank
-                )
+            when {
+                viewModel.isLoadingLeaderboard -> {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                    }
+                }
+                viewModel.leaderboardEntries.isEmpty() -> {
+                    Text(
+                        text = "No leaderboard data yet. Start exploring to earn XP!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
+                    )
+                }
+                else -> {
+                    viewModel.leaderboardEntries.forEach { entry ->
+                        LeaderboardEntry(
+                            rank = entry.rank,
+                            name = entry.name,
+                            level = entry.level,
+                            xp = entry.xp,
+                            isGoldRank = entry.isGoldRank,
+                            isCurrentUser = entry.isCurrentUser
+                        )
+                    }
+                }
             }
         }
     }
@@ -524,13 +546,16 @@ fun LeaderboardEntry(
     name: String,
     level: String,
     xp: String,
-    isGoldRank: Boolean
+    isGoldRank: Boolean,
+    isCurrentUser: Boolean = false
 ) {
+    val cardColor = when {
+        isCurrentUser -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.secondaryContainer
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        )
+        colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
         Row(
             modifier = Modifier

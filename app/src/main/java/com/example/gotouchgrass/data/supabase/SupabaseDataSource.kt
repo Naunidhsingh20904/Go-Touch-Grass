@@ -20,9 +20,10 @@ class SupabaseDataSource(
         const val TABLE_ROUTES = "route"
         const val TABLE_ROUTE_STOPS = "route_stop"
         const val TABLE_SEARCH_ACTIVITY = "search_activity"
+        const val TABLE_USER_SETTINGS = "user_settings"
+        const val TABLE_STREAKS = "streak"
+        const val TABLE_VISIT_SESSIONS = "visit_session"
     }
-
-    // user operations
 
     suspend fun getUserById(userId: String): Result<User?> = runCatching {
         val users = supabaseClient.from(TABLE_USERS)
@@ -45,8 +46,6 @@ class SupabaseDataSource(
             xpTotal = xpTotal.toInt()
         )
     }
-
-    // Explore page
 
     suspend fun getUserRowByAuthId(authUserId: String): UserRow? =
         supabaseClient.from(TABLE_USERS).select().decodeList<UserRow>()
@@ -108,4 +107,38 @@ class SupabaseDataSource(
 
     suspend fun fetchAllRouteStops(): List<RouteStopRow> =
         supabaseClient.from(TABLE_ROUTE_STOPS).select().decodeList<RouteStopRow>()
+
+    suspend fun fetchUserSettings(userId: Long): UserSettingsRow? =
+        supabaseClient.from(TABLE_USER_SETTINGS).select {
+            filter { eq("user_id", userId) }
+            limit(1)
+        }.decodeList<UserSettingsRow>().firstOrNull()
+
+    suspend fun upsertUserSettings(row: UserSettingsUpsert) {
+        supabaseClient.from(TABLE_USER_SETTINGS)
+            .upsert(row) { onConflict = "user_id" }
+    }
+
+    suspend fun fetchLeaderboardUsers(limit: Int = 20): List<UserRow> =
+        supabaseClient.from(TABLE_USERS).select {
+            order("xp_total", Order.DESCENDING)
+            limit(limit.toLong())
+        }.decodeList()
+
+    suspend fun fetchStreakByType(userId: Long, type: String): StreakRow? =
+        supabaseClient.from(TABLE_STREAKS).select {
+            filter {
+                eq("user_id", userId)
+                eq("type", type)
+            }
+            limit(1)
+        }.decodeList<StreakRow>().firstOrNull()
+
+    suspend fun fetchWeeklyVisitSessions(userId: Long, weekStartIso: String): List<VisitSessionRow> =
+        supabaseClient.from(TABLE_VISIT_SESSIONS).select {
+            filter {
+                eq("user_id", userId)
+                gte("started_at", weekStartIso)
+            }
+        }.decodeList()
 }
