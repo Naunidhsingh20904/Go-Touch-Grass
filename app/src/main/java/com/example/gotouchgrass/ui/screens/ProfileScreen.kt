@@ -361,7 +361,7 @@ private val badgeIcons = listOf(
     Icons.Default.Star,
     Icons.Default.Place,
     Icons.Default.Favorite,
-    Icons.Default.Build
+    Icons.Default.Star
 )
 
 @Composable
