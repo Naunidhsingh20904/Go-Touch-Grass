@@ -45,6 +45,9 @@ import com.example.gotouchgrass.ui.search.SearchViewModel
 import com.example.gotouchgrass.ui.settings.SettingsScreen
 import com.example.gotouchgrass.ui.screens.ProfileViewModel
 import com.example.gotouchgrass.ui.settings.SettingsViewModel
+import com.example.gotouchgrass.data.ProfileRepository
+import com.example.gotouchgrass.data.SupabaseProfileRepository
+import com.example.gotouchgrass.domain.ProfileModel
 import com.example.gotouchgrass.ui.stats.StatsScreen
 import com.example.gotouchgrass.ui.stats.StatsViewModel
 import com.example.gotouchgrass.data.GoTouchGrassRepository
@@ -105,6 +108,7 @@ fun GoTouchGrassApp() {
     val authService = remember { AuthService(supabase) }
     val dataSource = remember { SupabaseDataSource(supabase) }
     val repository = remember { GoTouchGrassRepository(dataSource) }
+    val profileRepository: ProfileRepository = remember { SupabaseProfileRepository(repository) }
     val searchViewModel = remember(currentUserId) {
         SearchViewModel(
             currentUserId = currentUserId,
@@ -121,7 +125,15 @@ fun GoTouchGrassApp() {
     val statsViewModel = remember(currentUserId) {
         StatsViewModel(userId = currentUserId, repository = repository)
     }
-    val profileViewModel = remember { ProfileViewModel() }
+    val profileViewModel = remember(currentUserId) {
+        currentUserId?.let { userId ->
+            val model = ProfileModel(
+                currentUserId = userId,
+                repository = profileRepository
+            )
+            ProfileViewModel(model = model)
+        }
+    }
     val authViewModel = remember { AuthViewModel() }
     val settingsViewModel = remember(currentUserId) {
         SettingsViewModel(userId = currentUserId, repository = repository)
@@ -234,10 +246,16 @@ fun GoTouchGrassApp() {
                                 }
                             }
                             AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
-                            AppDestinations.PROFILE -> ProfileScreen(
-                                viewModel = profileViewModel,
-                                onSettingsClick = { showSettings = true }
-                            )
+                            AppDestinations.PROFILE -> {
+                                if (profileViewModel != null) {
+                                    ProfileScreen(
+                                        viewModel = profileViewModel,
+                                        onSettingsClick = { showSettings = true }
+                                    )
+                                } else {
+                                    Text("Loading profile...")
+                                }
+                            }
 
                             AppDestinations.MAP -> MapScreen(selectedPlaceId = selectedMapPlaceId, placesClient = placesClient, repository = repository) {
                                 selectedMapPlaceId = null
