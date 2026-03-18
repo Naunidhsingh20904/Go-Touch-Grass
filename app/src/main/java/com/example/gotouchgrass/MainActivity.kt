@@ -51,8 +51,12 @@ import com.example.gotouchgrass.domain.ProfileModel
 import com.example.gotouchgrass.ui.stats.StatsScreen
 import com.example.gotouchgrass.ui.stats.StatsViewModel
 import com.example.gotouchgrass.data.GoTouchGrassRepository
+import com.example.gotouchgrass.data.MapRepository
+import com.example.gotouchgrass.data.SupabaseMapRepository
 import com.example.gotouchgrass.data.auth.AuthService
 import com.example.gotouchgrass.data.supabase.SupabaseDataSource
+import com.example.gotouchgrass.domain.MapModel
+import com.example.gotouchgrass.ui.map.MapViewModel
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.auth.Auth
@@ -109,6 +113,7 @@ fun GoTouchGrassApp() {
     val dataSource = remember { SupabaseDataSource(supabase) }
     val repository = remember { GoTouchGrassRepository(dataSource) }
     val profileRepository: ProfileRepository = remember { SupabaseProfileRepository(repository) }
+    val mapRepository: MapRepository = remember { SupabaseMapRepository(repository) }
     val searchViewModel = remember(currentUserId) {
         SearchViewModel(
             currentUserId = currentUserId,
@@ -132,6 +137,16 @@ fun GoTouchGrassApp() {
                 repository = profileRepository
             )
             ProfileViewModel(model = model)
+        }
+    }
+    val mapViewModel = remember(currentUserId) {
+        currentUserId?.let { userId ->
+            val model = MapModel(
+                currentUserId = userId,
+                profileRepository = profileRepository,
+                mapRepository = mapRepository
+            )
+            MapViewModel(model = model)
         }
     }
     val authViewModel = remember { AuthViewModel() }
@@ -257,7 +272,12 @@ fun GoTouchGrassApp() {
                                 }
                             }
 
-                            AppDestinations.MAP -> MapScreen(selectedPlaceId = selectedMapPlaceId, placesClient = placesClient, repository = repository) {
+                            AppDestinations.MAP -> MapScreen(
+                                selectedPlaceId = selectedMapPlaceId,
+                                placesClient = placesClient,
+                                repository = repository,
+                                viewModel = mapViewModel
+                            ) {
                                 selectedMapPlaceId = null
                             }
                         }
