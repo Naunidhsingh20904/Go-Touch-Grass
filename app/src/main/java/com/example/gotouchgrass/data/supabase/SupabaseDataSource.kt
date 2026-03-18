@@ -5,7 +5,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Order
 
-class SupabaseDataSource(
+open class SupabaseDataSource(
     private val supabaseClient: SupabaseClient
 ) {
 

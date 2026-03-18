@@ -1,6 +1,6 @@
 package com.example.gotouchgrass.domain
 
-import com.example.gotouchgrass.data.GoTouchGrassRepository
+import com.example.gotouchgrass.data.ExploreRepository
 
 data class ExploreChallengeItem(
     val id: String,
@@ -25,7 +25,7 @@ data class ExploreRouteItem(
 
 class ExploreModel(
     private val currentUserId: String,
-    private val repository: GoTouchGrassRepository
+    private val repository: ExploreRepository
 ) {
     suspend fun getTotalXp(): Int = repository.getTotalXp(currentUserId).getOrDefault(0)
 
