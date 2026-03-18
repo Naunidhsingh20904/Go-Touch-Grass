@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,13 +16,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,14 +39,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.gotouchgrass.data.GoTouchGrassRepository
+import com.example.gotouchgrass.data.FakeMapRepository
+import com.example.gotouchgrass.data.FakeProfileRepository
 import com.example.gotouchgrass.domain.FakeData
+import com.example.gotouchgrass.domain.MapModel
 import com.example.gotouchgrass.ui.map.capture.CaptureScreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
+import com.example.gotouchgrass.ui.theme.ForestGreen
+import com.example.gotouchgrass.ui.theme.GoldenYellow
+import com.example.gotouchgrass.ui.theme.SandLight
+import com.example.gotouchgrass.ui.theme.XpBarStart
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -113,6 +131,7 @@ fun MapScreen(
     selectedPlaceId: String? = null,
     placesClient: PlacesClient? = null,
     repository: GoTouchGrassRepository? = null,
+    viewModel: MapViewModel? = null,
     onPlaceLoaded: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -237,6 +256,45 @@ fun MapScreen(
             }
         }
 
+        // --- Overlay: Header (progress + motivating stats) ---
+        viewModel?.let { vm ->
+            val header = vm.headerStats
+            MapHeaderOverlay(
+                level = header.level,
+                currentXp = header.currentXp,
+                maxXp = header.maxXp,
+                xpToNext = header.xpToNextLevel,
+                totalXp = header.totalXp,
+                streakDays = header.streakDays,
+                zonesVisited = header.zonesVisited,
+                timeOutside = header.timeOutsideLabel,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(
+                        top = GoTouchGrassDimens.SpacingMd,
+                        start = GoTouchGrassDimens.SpacingMd,
+                        end = GoTouchGrassDimens.SpacingMd
+                    )
+            )
+        }
+
+        // --- Overlay: Footer (nearby areas) ---
+        viewModel?.let { vm ->
+            if (vm.nearbyRoutes.isNotEmpty()) {
+                NearbyAreasOverlay(
+                    title = "Nearby",
+                    routes = vm.nearbyRoutes.take(6),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(
+                            start = GoTouchGrassDimens.SpacingMd,
+                            end = GoTouchGrassDimens.SpacingMd,
+                            bottom = GoTouchGrassDimens.SpacingMd
+                        )
+                )
+            }
+        }
+
         selectedPoi?.let { poi ->
             val info = remember(poi.placeId, poi.name) { selectedPoiInfo(poi) }
             val resolvedCapturePlaceId = remember(poi.placeId) { resolveCapturePlaceIdForDemo(poi.placeId) }
@@ -261,6 +319,211 @@ fun MapScreen(
                     capturePlaceId = resolvedCapturePlaceId
                 },
                 onClose = { selectedPoi = null }
+            )
+        }
+    }
+}
+
+@Composable
+private fun MapHeaderOverlay(
+    level: Int,
+    currentXp: Int,
+    maxXp: Int,
+    xpToNext: Int,
+    totalXp: Int,
+    streakDays: Int,
+    zonesVisited: Int,
+    timeOutside: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(GoTouchGrassDimens.RadiusLarge),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        tonalElevation = 6.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(GoTouchGrassDimens.SpacingMd),
+            verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
+                        color = SandLight
+                    ) {
+                        Text(
+                            text = level.toString(),
+                            modifier = Modifier.padding(
+                                horizontal = GoTouchGrassDimens.SpacingSm,
+                                vertical = GoTouchGrassDimens.SpacingXs
+                            ),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = ForestGreen
+                        )
+                    }
+
+                    Spacer(Modifier.size(GoTouchGrassDimens.SpacingSm))
+
+                    Text(
+                        text = "Level $level Explorer",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Text(
+                    text = "$xpToNext to next",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = ForestGreen
+                )
+            }
+
+            LinearProgressIndicator(
+                progress = {
+                    if (maxXp <= 0) 0f else (currentXp.toFloat() / maxXp.toFloat()).coerceIn(0f, 1f)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .clip(RoundedCornerShape(GoTouchGrassDimens.RadiusFull)),
+                color = XpBarStart,
+                trackColor = SandLight,
+                drawStopIndicator = {}
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
+            ) {
+                StatPill(label = "XP", value = "%,d".format(totalXp), accent = GoldenYellow, modifier = Modifier.weight(1f))
+                StatPill(label = "Streak", value = streakDays.toString(), accent = ForestGreen, modifier = Modifier.weight(1f))
+                StatPill(label = "Zones", value = zonesVisited.toString(), accent = ForestGreen, modifier = Modifier.weight(1f))
+                StatPill(label = "Time", value = timeOutside, accent = ForestGreen, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatPill(
+    label: String,
+    value: String,
+    accent: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
+        color = SandLight
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = GoTouchGrassDimens.SpacingSm,
+                vertical = GoTouchGrassDimens.SpacingXs
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.labelLarge,
+                color = accent
+            )
+            Spacer(Modifier.size(GoTouchGrassDimens.SpacingXs))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun NearbyAreasOverlay(
+    title: String,
+    routes: List<com.example.gotouchgrass.domain.ExploreRouteItem>,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(GoTouchGrassDimens.RadiusLarge),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        tonalElevation = 6.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(GoTouchGrassDimens.SpacingMd),
+            verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "tap a spot",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = ForestGreen
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
+            ) {
+                routes.forEach { route ->
+                    NearbyRouteCard(route = route)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NearbyRouteCard(route: com.example.gotouchgrass.domain.ExploreRouteItem) {
+    Card(
+        modifier = Modifier
+            .size(width = 190.dp, height = 92.dp),
+        shape = RoundedCornerShape(GoTouchGrassDimens.RadiusLarge),
+        colors = CardDefaults.cardColors(containerColor = SandLight),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(GoTouchGrassDimens.SpacingSm),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = route.theme.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.labelSmall,
+                color = ForestGreen
+            )
+            Text(
+                text = route.title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
+            Text(
+                text = "${route.zoneCount} stops • ~${route.hours}h",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
         }
     }
@@ -372,6 +635,14 @@ private fun CapturePoiPopup(
 @Composable
 fun MapScreenPreview() {
     GoTouchGrassTheme {
-        MapScreen()
+        val vm = remember {
+            val model = MapModel(
+                currentUserId = "user_you",
+                profileRepository = FakeProfileRepository(),
+                mapRepository = FakeMapRepository()
+            )
+            MapViewModel(model = model)
+        }
+        MapScreen(viewModel = vm)
     }
 }
