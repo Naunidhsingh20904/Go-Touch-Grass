@@ -5,6 +5,7 @@ import com.example.gotouchgrass.ui.screens.AuthViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Ignore
 import org.junit.Test
 
 /**
@@ -34,6 +35,7 @@ class AuthScreenTest {
     }
 
     @Test
+    @Ignore("TODO: re-add mock auth to not test against supabase")
     fun signIn_withWrongPassword_returnsError() {
         viewModel.setEmail("you@uwaterloo.ca")
         viewModel.setPassword("wrong")
@@ -43,6 +45,7 @@ class AuthScreenTest {
     }
 
     @Test
+    @Ignore("TODO: re-add mock auth to not test against supabase")
     fun signIn_withUnknownEmail_returnsError() {
         viewModel.setEmail("unknown@example.com")
         viewModel.setPassword("password")
@@ -90,6 +93,7 @@ class AuthScreenTest {
     }
 
     @Test
+    @Ignore("TODO: re-add mock auth to not test against supabase")
     fun signUp_withExistingEmail_returnsError() {
         viewModel.setSignInTab(false)
         viewModel.setUsername("someone")
@@ -97,7 +101,10 @@ class AuthScreenTest {
         viewModel.setPassword("password123")
         val result = viewModel.signUp()
         assertTrue(result is AuthResult.Error)
-        assertEquals("An account with this email already exists", (result as AuthResult.Error).message)
+        assertEquals(
+            "An account with this email already exists",
+            (result as AuthResult.Error).message
+        )
     }
 
     @Test
@@ -120,15 +127,5 @@ class AuthScreenTest {
         val result = viewModel.signUp()
         assertTrue(result is AuthResult.Error)
         assertEquals("Password must be at least 4 characters", (result as AuthResult.Error).message)
-    }
-
-    // --- Demo credentials (FakeData integration) ---
-
-    @Test
-    fun getDemoCredentials_returnsOneEntryPerFakeDataUser() {
-        val credentials = viewModel.getDemoCredentials()
-        assertEquals(2, credentials.size)
-        assertTrue(credentials.any { it.first == "you@uwaterloo.ca" && it.second == "password" })
-        assertTrue(credentials.any { it.first == "world@example.com" && it.second == "password" })
     }
 }

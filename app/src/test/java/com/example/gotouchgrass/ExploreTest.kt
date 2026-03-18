@@ -1,13 +1,16 @@
 package com.example.gotouchgrass
 
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import com.example.gotouchgrass.domain.ExploreModel
 import org.junit.Test
 
 class ExploreTest {
+    private val repository = FakeGoTouchGrassRepository()
+
     @Test
-    fun getTotalXp_getsTotalXp() {
-        val model = ExploreModel("user_you")
+    fun getTotalXp_getsTotalXp() = runBlocking {
+        val model = ExploreModel("user_you", repository)
 
         val totalXp = model.getTotalXp()
 
@@ -15,8 +18,8 @@ class ExploreTest {
     }
 
     @Test
-    fun getDailyChallenges_getsDailyChallenge() {
-        val model = ExploreModel("user_you")
+    fun getDailyChallenges_getsDailyChallenge() = runBlocking {
+        val model = ExploreModel("user_you", repository)
 
         val dailyChallenges = model.getDailyChallenges()
 
@@ -25,8 +28,8 @@ class ExploreTest {
     }
 
     @Test
-    fun getWeeklyChallenges_getsWeeklyChallenge() {
-        val model = ExploreModel("user_you")
+    fun getWeeklyChallenges_getsWeeklyChallenge() = runBlocking {
+        val model = ExploreModel("user_you", repository)
 
         val weeklyChallenges = model.getWeeklyChallenges()
 
@@ -35,8 +38,8 @@ class ExploreTest {
     }
 
     @Test
-    fun getCuratedRoutes_getsCuratedRoutes() {
-        val model = ExploreModel("user_you")
+    fun getCuratedRoutes_getsCuratedRoutes() = runBlocking {
+        val model = ExploreModel("user_you", repository)
 
         val curatedRoutes = model.getCuratedRoutes()
 
