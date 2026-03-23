@@ -6,12 +6,14 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gotouchgrass.data.GoTouchGrassRepository
+import com.example.gotouchgrass.data.preferences.AppPreferencesStore
 import com.example.gotouchgrass.domain.UserPreferences
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(
     private val userId: String? = null,
-    private val repository: GoTouchGrassRepository? = null
+    private val repository: GoTouchGrassRepository? = null,
+    private val appPreferencesStore: AppPreferencesStore? = null
 ) : ViewModel() {
 
     var preferences by mutableStateOf(
@@ -34,12 +36,22 @@ class SettingsViewModel(
         viewModelScope.launch {
             repo.getUserSettings(uid).onSuccess { loadedPrefs ->
                 preferences = loadedPrefs
+                syncLocalStore(loadedPrefs)
             }
+        }
+    }
+
+    private fun syncLocalStore(prefs: UserPreferences) {
+        val store = appPreferencesStore ?: return
+        viewModelScope.launch {
+            store.setDarkMode(prefs.darkModeEnabled)
+            store.setSoundEffectsEnabled(prefs.soundEffectsEnabled)
         }
     }
 
     fun updatePreferences(updated: UserPreferences) {
         preferences = updated
+        syncLocalStore(updated)
         val uid = userId ?: return
         val repo = repository ?: return
         viewModelScope.launch {

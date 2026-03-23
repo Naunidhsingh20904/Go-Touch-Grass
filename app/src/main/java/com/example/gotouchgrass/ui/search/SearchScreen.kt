@@ -34,12 +34,16 @@ import com.example.gotouchgrass.ui.theme.SandLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchScreen(viewModel: SearchViewModel) {
+fun SearchScreen(
+    viewModel: SearchViewModel,
+    locationServicesEnabled: Boolean = true
+) {
     val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     val isQueryActive = viewModel.query.isNotBlank()
 
-    LaunchedEffect(viewModel, context) {
+    LaunchedEffect(viewModel, context, locationServicesEnabled) {
+        if (!locationServicesEnabled) return@LaunchedEffect
         val hasFineLocationPermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION

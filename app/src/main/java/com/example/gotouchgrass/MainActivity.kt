@@ -42,7 +42,8 @@ import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 
 import com.example.gotouchgrass.ui.search.SearchScreen
 import com.example.gotouchgrass.ui.search.SearchViewModel
-import com.example.gotouchgrass.ui.settings.SettingsScreen
+import com.example.gotouchgrass.data.preferences.AppPreferencesStore
+import com.example.gotouchgrass.ui.settings.SettingsFlow
 import com.example.gotouchgrass.ui.screens.ProfileViewModel
 import com.example.gotouchgrass.ui.settings.SettingsViewModel
 import com.example.gotouchgrass.data.ProfileRepository
@@ -61,6 +62,7 @@ import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.auth.Auth
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 val supabase = createSupabaseClient(
     supabaseUrl = "https://pfpjfczpztwqcicxryoy.supabase.co",
@@ -77,10 +79,11 @@ class MainActivity : ComponentActivity() {
             Places.initialize(applicationContext, BuildConfig.MAPS_API_KEY)
         }
         enableEdgeToEdge()
+        val initialDarkMode = runBlocking {
+            AppPreferencesStore(applicationContext).readDarkMode()
+        }
         setContent {
-            GoTouchGrassTheme {
-                GoTouchGrassApp()
-            }
+            GoTouchGrassApp(initialDarkMode = initialDarkMode)
         }
     }
 }
@@ -93,192 +96,215 @@ class MainActivity : ComponentActivity() {
 )
 @Composable
 fun GoTouchGrassAppPreview() {
-    GoTouchGrassTheme {
-        GoTouchGrassApp()
-    }
+    GoTouchGrassApp()
 }
 
 @Composable
-fun GoTouchGrassApp() {
-    var isAuthenticated by rememberSaveable { mutableStateOf(false) }
-    var currentUserId by rememberSaveable { mutableStateOf<String?>(null) }
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.MAP) }
-    var showSettings by rememberSaveable { mutableStateOf(false) }
-    var authError by rememberSaveable { mutableStateOf<String?>(null) }
-    var selectedMapPlaceId by rememberSaveable { mutableStateOf<String?>(null) }
-
-    val context = LocalContext.current.applicationContext
-    val coroutineScope = rememberCoroutineScope()
-    val authService = remember { AuthService(supabase) }
-    val dataSource = remember { SupabaseDataSource(supabase) }
-    val repository = remember { GoTouchGrassRepository(dataSource) }
-    val profileRepository: ProfileRepository = remember { SupabaseProfileRepository(repository) }
-    val mapRepository: MapRepository = remember { SupabaseMapRepository(repository) }
-    val searchViewModel = remember(currentUserId) {
-        SearchViewModel(
-            currentUserId = currentUserId,
-            repository = repository,
-            onSelectPlace = { placeId ->
-                selectedMapPlaceId = placeId
-                currentDestination = AppDestinations.MAP
-            }
-        )
-    }
-    val exploreViewModel = remember(currentUserId) {
-        currentUserId?.let { ExploreViewModel(currentUserId = it, repository = repository) }
-    }
-    val statsViewModel = remember(currentUserId) {
-        StatsViewModel(userId = currentUserId, repository = repository)
-    }
-    val profileViewModel = remember(currentUserId) {
-        currentUserId?.let { userId ->
-            val model = ProfileModel(
-                currentUserId = userId,
-                repository = profileRepository
-            )
-            ProfileViewModel(model = model)
-        }
-    }
-    val mapViewModel = remember(currentUserId) {
-        currentUserId?.let { userId ->
-            val model = MapModel(
-                currentUserId = userId,
-                profileRepository = profileRepository,
-                mapRepository = mapRepository
-            )
-            MapViewModel(model = model)
-        }
-    }
-    val authViewModel = remember { AuthViewModel() }
-    val settingsViewModel = remember(currentUserId) {
-        SettingsViewModel(userId = currentUserId, repository = repository)
-    }
-    var placesClient by remember { mutableStateOf<PlacesClient?>(null) }
-
-    LaunchedEffect(searchViewModel, context) {
-        if (Places.isInitialized()) {
-            val client = Places.createClient(context)
-            placesClient = client
-            searchViewModel.initPlaces(client)
-        }
+fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
+    val appContext = LocalContext.current.applicationContext
+    val appPrefs = remember { AppPreferencesStore(appContext) }
+    var darkTheme by remember { mutableStateOf(initialDarkMode) }
+    LaunchedEffect(appPrefs) {
+        appPrefs.darkModeFlow.collect { darkTheme = it }
     }
 
-    LaunchedEffect(authService) {
-        authService.getCurrentUser().onSuccess { user ->
-            isAuthenticated = user != null
-            currentUserId = user?.id
-        }
-    }
+    GoTouchGrassTheme(darkTheme = darkTheme) {
+        var isAuthenticated by rememberSaveable { mutableStateOf(false) }
+        var currentUserId by rememberSaveable { mutableStateOf<String?>(null) }
+        var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.MAP) }
+        var showSettings by rememberSaveable { mutableStateOf(false) }
+        var authError by rememberSaveable { mutableStateOf<String?>(null) }
+        var selectedMapPlaceId by rememberSaveable { mutableStateOf<String?>(null) }
 
-    if (!isAuthenticated) {
-        AuthScreen(
-            viewModel = authViewModel,
-            onSignIn = { email, password ->
-                coroutineScope.launch {
-                    authService.signIn(email, password)
-                        .onSuccess { user ->
-                            authError = null
-                            currentUserId = user.id
-                            isAuthenticated = true
-                        }
-                        .onFailure { error ->
-                            authError = error.message
-                        }
+        val context = LocalContext.current.applicationContext
+        val coroutineScope = rememberCoroutineScope()
+        val authService = remember { AuthService(supabase) }
+        val dataSource = remember { SupabaseDataSource(supabase) }
+        val repository = remember { GoTouchGrassRepository(dataSource) }
+        val profileRepository: ProfileRepository = remember { SupabaseProfileRepository(repository) }
+        val mapRepository: MapRepository = remember { SupabaseMapRepository(repository) }
+        val searchViewModel = remember(currentUserId) {
+            SearchViewModel(
+                currentUserId = currentUserId,
+                repository = repository,
+                onSelectPlace = { placeId ->
+                    selectedMapPlaceId = placeId
+                    currentDestination = AppDestinations.MAP
                 }
-            },
-            onSignUp = { username, email, password ->
-                coroutineScope.launch {
-                    authService.signUp(email, password, username)
-                        .onSuccess { user ->
-                            authError = null
-                            currentUserId = user.id
-                            isAuthenticated = true
-                        }
-                        .onFailure { error ->
-                            authError = error.message
-                        }
-                }
-            },
-            onForgotPassword = {
-                // TODO: Implement forgot password
-            }
-        )
-        if (!authError.isNullOrBlank()) {
-            Text(
-                text = authError ?: "Authentication failed",
-                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(horizontal = 24.dp)
             )
         }
-    } else {
-        if (showSettings) {
-            // Settings screen is accessed from Profile, not from bottom navigation
-            Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                Box(Modifier.padding(innerPadding)) {
-                    SettingsScreen(
-                        viewModel = settingsViewModel,
-                        onBackClick = { showSettings = false },
-                        onLogoutClick = {
-                            coroutineScope.launch {
-                                authService.signOut()
-                                currentUserId = null
-                                isAuthenticated = false
-                                showSettings = false
-                                currentDestination = AppDestinations.MAP
+        val exploreViewModel = remember(currentUserId) {
+            currentUserId?.let { ExploreViewModel(currentUserId = it, repository = repository) }
+        }
+        val statsViewModel = remember(currentUserId) {
+            StatsViewModel(userId = currentUserId, repository = repository)
+        }
+        val profileViewModel = remember(currentUserId) {
+            currentUserId?.let { userId ->
+                val model = ProfileModel(
+                    currentUserId = userId,
+                    repository = profileRepository
+                )
+                ProfileViewModel(model = model)
+            }
+        }
+        val mapViewModel = remember(currentUserId) {
+            currentUserId?.let { userId ->
+                val model = MapModel(
+                    currentUserId = userId,
+                    profileRepository = profileRepository,
+                    mapRepository = mapRepository
+                )
+                MapViewModel(model = model)
+            }
+        }
+        val authViewModel = remember { AuthViewModel() }
+        val settingsViewModel = remember(currentUserId, appPrefs) {
+            SettingsViewModel(
+                userId = currentUserId,
+                repository = repository,
+                appPreferencesStore = appPrefs
+            )
+        }
+        var placesClient by remember { mutableStateOf<PlacesClient?>(null) }
+
+        LaunchedEffect(searchViewModel, context) {
+            if (Places.isInitialized()) {
+                val client = Places.createClient(context)
+                placesClient = client
+                searchViewModel.initPlaces(client)
+            }
+        }
+
+        LaunchedEffect(authService) {
+            authService.getCurrentUser().onSuccess { user ->
+                isAuthenticated = user != null
+                currentUserId = user?.id
+            }
+        }
+
+        if (!isAuthenticated) {
+            AuthScreen(
+                viewModel = authViewModel,
+                onSignIn = { email, password ->
+                    coroutineScope.launch {
+                        authService.signIn(email, password)
+                            .onSuccess { user ->
                                 authError = null
+                                currentUserId = user.id
+                                isAuthenticated = true
                             }
-                        }
-                    )
+                            .onFailure { error ->
+                                authError = error.message
+                            }
+                    }
+                },
+                onSignUp = { username, email, password ->
+                    coroutineScope.launch {
+                        authService.signUp(email, password, username)
+                            .onSuccess { user ->
+                                authError = null
+                                currentUserId = user.id
+                                isAuthenticated = true
+                            }
+                            .onFailure { error ->
+                                authError = error.message
+                            }
+                    }
+                },
+                onForgotPassword = {
+                    // TODO: Implement forgot password
                 }
+            )
+            if (!authError.isNullOrBlank()) {
+                Text(
+                    text = authError ?: "Authentication failed",
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
             }
         } else {
-            NavigationSuiteScaffold(
-                navigationSuiteItems = {
-                    AppDestinations.entries.forEach {
-                        item(
-                            icon = {
-                                Icon(
-                                    it.icon,
-                                    contentDescription = it.label
-                                )
-                            },
-                            label = { Text(it.label) },
-                            selected = it == currentDestination,
-                            onClick = { currentDestination = it }
-                        )
-                    }
-                }
-            ) {
+            if (showSettings) {
+                // Settings screen is accessed from Profile, not from bottom navigation
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Box(Modifier.padding(innerPadding)) {
-                        when (currentDestination) {
-                            AppDestinations.SEARCH -> SearchScreen(viewModel = searchViewModel)
-                            AppDestinations.EXPLORE -> {
-                                if (exploreViewModel != null) {
-                                    ExploreScreen(viewModel = exploreViewModel)
-                                } else {
-                                    Text("Loading user data...")
+                        val uid = currentUserId
+                        if (uid != null) {
+                            SettingsFlow(
+                                viewModel = settingsViewModel,
+                                authService = authService,
+                                profileViewModel = profileViewModel,
+                                currentUserId = uid,
+                                onBackClick = { showSettings = false },
+                                onLogoutClick = {
+                                    coroutineScope.launch {
+                                        authService.signOut()
+                                        currentUserId = null
+                                        isAuthenticated = false
+                                        showSettings = false
+                                        currentDestination = AppDestinations.MAP
+                                        authError = null
+                                    }
                                 }
-                            }
-                            AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
-                            AppDestinations.PROFILE -> {
-                                if (profileViewModel != null) {
-                                    ProfileScreen(
-                                        viewModel = profileViewModel,
-                                        onSettingsClick = { showSettings = true }
+                            )
+                        } else {
+                            Text("Loading account…")
+                        }
+                    }
+                }
+            } else {
+                NavigationSuiteScaffold(
+                    navigationSuiteItems = {
+                        AppDestinations.entries.forEach {
+                            item(
+                                icon = {
+                                    Icon(
+                                        it.icon,
+                                        contentDescription = it.label
                                     )
-                                } else {
-                                    Text("Loading profile...")
+                                },
+                                label = { Text(it.label) },
+                                selected = it == currentDestination,
+                                onClick = { currentDestination = it }
+                            )
+                        }
+                    }
+                ) {
+                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        Box(Modifier.padding(innerPadding)) {
+                            when (currentDestination) {
+                                AppDestinations.SEARCH -> SearchScreen(
+                                    viewModel = searchViewModel,
+                                    locationServicesEnabled = settingsViewModel.preferences.locationServicesEnabled
+                                )
+                                AppDestinations.EXPLORE -> {
+                                    if (exploreViewModel != null) {
+                                        ExploreScreen(viewModel = exploreViewModel)
+                                    } else {
+                                        Text("Loading user data...")
+                                    }
                                 }
-                            }
+                                AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
+                                AppDestinations.PROFILE -> {
+                                    if (profileViewModel != null) {
+                                        ProfileScreen(
+                                            viewModel = profileViewModel,
+                                            onSettingsClick = { showSettings = true }
+                                        )
+                                    } else {
+                                        Text("Loading profile...")
+                                    }
+                                }
 
-                            AppDestinations.MAP -> MapScreen(
-                                selectedPlaceId = selectedMapPlaceId,
-                                placesClient = placesClient,
-                                repository = repository,
-                                viewModel = mapViewModel
-                            ) {
-                                selectedMapPlaceId = null
+                                AppDestinations.MAP -> MapScreen(
+                                    selectedPlaceId = selectedMapPlaceId,
+                                    placesClient = placesClient,
+                                    repository = repository,
+                                    viewModel = mapViewModel,
+                                    locationServicesEnabled = settingsViewModel.preferences.locationServicesEnabled
+                                ) {
+                                    selectedMapPlaceId = null
+                                }
                             }
                         }
                     }
