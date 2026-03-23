@@ -7,7 +7,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,7 +31,16 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(),
     onBackClick: () -> Unit,
-    onLogoutClick: () -> Unit = {}
+    onLogoutClick: () -> Unit = {},
+    onEditProfileClick: () -> Unit = {},
+    onPrivacyClick: () -> Unit = {},
+    onHelpClick: () -> Unit = {},
+    onNotificationsToggle: (Boolean) -> Unit = { enabled ->
+        viewModel.updatePreferences(viewModel.preferences.copy(notificationsEnabled = enabled))
+    },
+    onLocationToggle: (Boolean) -> Unit = { enabled ->
+        viewModel.updatePreferences(viewModel.preferences.copy(locationServicesEnabled = enabled))
+    }
 ) {
     Column(
         modifier = modifier
@@ -32,73 +48,75 @@ fun SettingsScreen(
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
     ) {
-        // Top Bar
         SettingsTopBar(onBackClick = onBackClick)
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ACCOUNT Section
         SettingsSection(title = viewModel.accountSectionTitle) {
             SettingsItem(
                 icon = Icons.Default.Person,
                 title = viewModel.editProfileTitle,
-                showArrow = true
+                showArrow = true,
+                onRowClick = onEditProfileClick
             )
             SettingsItem(
                 icon = Icons.Default.Notifications,
                 title = viewModel.notificationsTitle,
                 showSwitch = true,
                 switchChecked = viewModel.preferences.notificationsEnabled,
-                onSwitchChange = { viewModel.updatePreferences(viewModel.preferences.copy(notificationsEnabled = it)) }
+                onSwitchChange = onNotificationsToggle
             )
             SettingsItem(
-                icon = Icons.Default.VolumeUp,
+                icon = Icons.AutoMirrored.Filled.VolumeUp,
                 title = viewModel.soundEffectsTitle,
                 showSwitch = true,
                 switchChecked = viewModel.preferences.soundEffectsEnabled,
-                onSwitchChange = { viewModel.updatePreferences(viewModel.preferences.copy(soundEffectsEnabled = it)) }
+                onSwitchChange = {
+                    viewModel.updatePreferences(viewModel.preferences.copy(soundEffectsEnabled = it))
+                }
             )
             SettingsItem(
                 icon = Icons.Default.DarkMode,
                 title = viewModel.darkModeTitle,
                 showSwitch = true,
                 switchChecked = viewModel.preferences.darkModeEnabled,
-                onSwitchChange = { viewModel.updatePreferences(viewModel.preferences.copy(darkModeEnabled = it)) }
+                onSwitchChange = {
+                    viewModel.updatePreferences(viewModel.preferences.copy(darkModeEnabled = it))
+                }
             )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // PRIVACY Section
         SettingsSection(title = viewModel.privacySectionTitle) {
             SettingsItem(
                 icon = Icons.Default.LocationOn,
                 title = viewModel.locationServicesTitle,
                 showSwitch = true,
                 switchChecked = viewModel.preferences.locationServicesEnabled,
-                onSwitchChange = { viewModel.updatePreferences(viewModel.preferences.copy(locationServicesEnabled = it)) }
+                onSwitchChange = onLocationToggle
             )
             SettingsItem(
                 icon = Icons.Default.Shield,
                 title = viewModel.privacySettingsTitle,
-                showArrow = true
+                showArrow = true,
+                onRowClick = onPrivacyClick
             )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // SUPPORT Section
         SettingsSection(title = viewModel.supportSectionTitle) {
             SettingsItem(
-                icon = Icons.Default.Help,
+                icon = Icons.AutoMirrored.Filled.Help,
                 title = viewModel.helpCenterTitle,
-                showArrow = true
+                showArrow = true,
+                onRowClick = onHelpClick
             )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Log Out Button
         LogoutButton(
             text = viewModel.logoutButtonText,
             onClick = onLogoutClick
@@ -106,7 +124,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Footer
         SettingsFooter(
             version = viewModel.appVersion,
             tagline = viewModel.appTagline
@@ -124,7 +141,6 @@ fun SettingsTopBar(onBackClick: () -> Unit) {
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Back button
         IconButton(
             onClick = onBackClick,
             modifier = Modifier
@@ -135,7 +151,7 @@ fun SettingsTopBar(onBackClick: () -> Unit) {
                 )
         ) {
             Icon(
-                imageVector = Icons.Default.ArrowBack,
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
                 tint = MaterialTheme.colorScheme.onPrimary
             )
@@ -189,16 +205,16 @@ fun SettingsItem(
     showArrow: Boolean = false,
     showSwitch: Boolean = false,
     switchChecked: Boolean = false,
-    onSwitchChange: (Boolean) -> Unit = {}
+    onSwitchChange: (Boolean) -> Unit = {},
+    onRowClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = !showSwitch) { }
+            .clickable(enabled = showArrow && !showSwitch) { onRowClick() }
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon with circle background
         Box(
             modifier = Modifier
                 .size(40.dp)

@@ -27,7 +27,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import com.example.gotouchgrass.data.SoundFeedback
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
@@ -40,6 +42,7 @@ fun CaptureScreen(
     onCaptured: (String) -> Unit = {},
     viewModel: CaptureViewModel = remember(placeId) { CaptureViewModel(placeId) }
 ) {
+    val context = LocalContext.current
     val state = viewModel.uiState
     val unknownPlaceError = viewModel.unknownPlaceError
 
@@ -94,6 +97,12 @@ fun CaptureScreen(
         if (!capturedComplete && holdProgress >= 0.99f) {
             capturedComplete = true
             onCaptured(placeId)
+        }
+    }
+
+    LaunchedEffect(capturedComplete) {
+        if (capturedComplete) {
+            SoundFeedback.playCaptureSuccess(context)
         }
     }
 
