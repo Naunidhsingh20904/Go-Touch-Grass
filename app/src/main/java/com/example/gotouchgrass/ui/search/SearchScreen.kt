@@ -1,7 +1,5 @@
 package com.example.gotouchgrass.ui.search
 
-import android.Manifest
-import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -15,6 +13,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,11 +23,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.gotouchgrass.location.AppLocationTracker
 import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 import com.example.gotouchgrass.R
-import com.google.android.gms.location.LocationServices
-import androidx.core.content.ContextCompat
 import com.example.gotouchgrass.ui.theme.ForestGreen
 import com.example.gotouchgrass.ui.theme.SandLight
 
@@ -36,25 +34,16 @@ import com.example.gotouchgrass.ui.theme.SandLight
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel,
-    locationServicesEnabled: Boolean = true
+    locationServicesEnabled: Boolean = true,
+    locationTracker: AppLocationTracker
 ) {
-    val context = LocalContext.current
-    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    val userLocation = locationTracker.currentLocation.collectAsState().value
     val isQueryActive = viewModel.query.isNotBlank()
 
-    LaunchedEffect(viewModel, context, locationServicesEnabled) {
+    LaunchedEffect(userLocation, locationServicesEnabled) {
         if (!locationServicesEnabled) return@LaunchedEffect
-        val hasFineLocationPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (hasFineLocationPermission) {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null) {
-                    viewModel.updateCurrentLocation(location.latitude, location.longitude)
-                }
-            }
+        userLocation?.let { location ->
+            viewModel.updateCurrentLocation(location.latitude, location.longitude)
         }
     }
 
@@ -313,6 +302,8 @@ fun LocationCard(
 @Composable
 fun SearchScreenPreview() {
     GoTouchGrassTheme {
-        SearchScreen(viewModel = SearchViewModel())
+        val context = LocalContext.current
+        val locationTracker = remember { AppLocationTracker(context.applicationContext) }
+        SearchScreen(viewModel = SearchViewModel(), locationTracker = locationTracker)
     }
 }
