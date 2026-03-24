@@ -18,6 +18,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +58,7 @@ import com.example.gotouchgrass.data.SupabaseMapRepository
 import com.example.gotouchgrass.data.auth.AuthService
 import com.example.gotouchgrass.data.supabase.SupabaseDataSource
 import com.example.gotouchgrass.domain.MapModel
+import com.example.gotouchgrass.location.AppLocationTracker
 import com.example.gotouchgrass.ui.map.MapViewModel
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
@@ -103,6 +105,7 @@ fun GoTouchGrassAppPreview() {
 fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
     val appContext = LocalContext.current.applicationContext
     val appPrefs = remember { AppPreferencesStore(appContext) }
+    val locationTracker = remember { AppLocationTracker(appContext) }
     var darkTheme by remember { mutableStateOf(initialDarkMode) }
     LaunchedEffect(appPrefs) {
         appPrefs.darkModeFlow.collect { darkTheme = it }
@@ -167,6 +170,20 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
             )
         }
         var placesClient by remember { mutableStateOf<PlacesClient?>(null) }
+
+        LaunchedEffect(settingsViewModel.preferences.locationServicesEnabled) {
+            if (settingsViewModel.preferences.locationServicesEnabled) {
+                locationTracker.startTracking()
+            } else {
+                locationTracker.stopTracking()
+            }
+        }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                locationTracker.stopTracking()
+            }
+        }
 
         LaunchedEffect(searchViewModel, context) {
             if (Places.isInitialized()) {
@@ -275,7 +292,8 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                             when (currentDestination) {
                                 AppDestinations.SEARCH -> SearchScreen(
                                     viewModel = searchViewModel,
-                                    locationServicesEnabled = settingsViewModel.preferences.locationServicesEnabled
+                                    locationServicesEnabled = settingsViewModel.preferences.locationServicesEnabled,
+                                    locationTracker = locationTracker
                                 )
                                 AppDestinations.EXPLORE -> {
                                     if (exploreViewModel != null) {
@@ -301,7 +319,8 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                                     placesClient = placesClient,
                                     repository = repository,
                                     viewModel = mapViewModel,
-                                    locationServicesEnabled = settingsViewModel.preferences.locationServicesEnabled
+                                    locationServicesEnabled = settingsViewModel.preferences.locationServicesEnabled,
+                                    locationTracker = locationTracker
                                 ) {
                                     selectedMapPlaceId = null
                                 }

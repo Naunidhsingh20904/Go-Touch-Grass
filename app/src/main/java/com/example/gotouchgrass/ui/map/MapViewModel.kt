@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.gotouchgrass.domain.ExploreRouteItem
 import com.example.gotouchgrass.domain.MapHeaderStats
 import com.example.gotouchgrass.domain.MapModel
+import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.launch
 
 class MapViewModel(
@@ -37,6 +38,15 @@ class MapViewModel(
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
+    var hasFocusedOnUserLocation by mutableStateOf(false)
+        private set
+
+    var savedCameraTarget by mutableStateOf<LatLng?>(null)
+        private set
+
+    var savedCameraZoom by mutableStateOf<Float?>(null)
+        private set
+
     init {
         refresh()
     }
@@ -55,5 +65,14 @@ class MapViewModel(
 
             isLoading = false
         }
+    }
+
+    fun markUserLocationFocused() {
+        hasFocusedOnUserLocation = true
+    }
+
+    fun saveCameraPosition(target: LatLng, zoom: Float) {
+        savedCameraTarget = target
+        savedCameraZoom = zoom
     }
 }
