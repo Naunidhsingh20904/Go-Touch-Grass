@@ -28,6 +28,10 @@ private fun rarityLabelFromScore(score: Double): String {
 private fun imageForCategory(category: LandmarkCategory): Int {
     return when (category) {
         LandmarkCategory.CAFE -> R.drawable.coffee_24
+        LandmarkCategory.FOOD -> R.drawable.chef_hat_24
+        LandmarkCategory.TRANSPORTATION -> R.drawable.directions_walk_24
+        LandmarkCategory.EDUCATION -> R.drawable.school_24dp
+        LandmarkCategory.GYM -> R.drawable.exercise_24dp
         LandmarkCategory.PARK -> R.drawable.nature_24
         LandmarkCategory.STUDY_SPOT -> R.drawable.book_2_24dp
         LandmarkCategory.LOUNGE -> R.drawable.chair_24dp
@@ -57,6 +61,10 @@ class CaptureViewModel(
                 com.example.gotouchgrass.domain.LandmarkCategory.PARK -> 0.10
                 com.example.gotouchgrass.domain.LandmarkCategory.STUDY_SPOT -> 0.91
                 com.example.gotouchgrass.domain.LandmarkCategory.CAFE -> 0.35
+                com.example.gotouchgrass.domain.LandmarkCategory.FOOD -> 0.40
+                com.example.gotouchgrass.domain.LandmarkCategory.TRANSPORTATION -> 0.30
+                com.example.gotouchgrass.domain.LandmarkCategory.EDUCATION -> 0.73
+                com.example.gotouchgrass.domain.LandmarkCategory.GYM -> 0.73
                 com.example.gotouchgrass.domain.LandmarkCategory.LOUNGE -> 0.52
                 com.example.gotouchgrass.domain.LandmarkCategory.MURAL -> 0.92
                 com.example.gotouchgrass.domain.LandmarkCategory.STATUE -> 0.83

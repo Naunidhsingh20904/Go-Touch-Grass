@@ -42,7 +42,7 @@ data class LandmarkRow(
     @SerialName("created_at") val createdAt: String,
     @SerialName("zone_id") val zoneId: Long,
     val category: String,
-    @SerialName("place_id") val placeId: Long,
+    @SerialName("place_id") val placeId: String,
     @SerialName("created_by_user_id") val createdByUserId: Long? = null,
     @SerialName("is_verified") val isVerified: Boolean
 )

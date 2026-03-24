@@ -124,7 +124,8 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
         val authService = remember { AuthService(supabase) }
         val dataSource = remember { SupabaseDataSource(supabase) }
         val repository = remember { GoTouchGrassRepository(dataSource) }
-        val profileRepository: ProfileRepository = remember { SupabaseProfileRepository(repository) }
+        val profileRepository: ProfileRepository =
+            remember { SupabaseProfileRepository(repository) }
         val mapRepository: MapRepository = remember { SupabaseMapRepository(repository) }
         val searchViewModel = remember(currentUserId) {
             SearchViewModel(
@@ -295,6 +296,7 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                                     locationServicesEnabled = settingsViewModel.preferences.locationServicesEnabled,
                                     locationTracker = locationTracker
                                 )
+
                                 AppDestinations.EXPLORE -> {
                                     if (exploreViewModel != null) {
                                         ExploreScreen(viewModel = exploreViewModel)
@@ -302,6 +304,7 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                                         Text("Loading user data...")
                                     }
                                 }
+
                                 AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
                                 AppDestinations.PROFILE -> {
                                     if (profileViewModel != null) {
@@ -317,7 +320,6 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                                 AppDestinations.MAP -> MapScreen(
                                     selectedPlaceId = selectedMapPlaceId,
                                     placesClient = placesClient,
-                                    repository = repository,
                                     viewModel = mapViewModel,
                                     locationServicesEnabled = settingsViewModel.preferences.locationServicesEnabled,
                                     locationTracker = locationTracker
