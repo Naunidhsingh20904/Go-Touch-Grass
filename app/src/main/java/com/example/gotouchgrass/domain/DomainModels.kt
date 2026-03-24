@@ -86,6 +86,10 @@ enum class LandmarkCategory {
     STATUE,
     LOUNGE,
     CAFE,
+    FOOD,
+    TRANSPORTATION,
+    EDUCATION,
+    GYM,
     PARK,
     STUDY_SPOT,
     OTHER
