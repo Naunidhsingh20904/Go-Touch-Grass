@@ -102,6 +102,7 @@ open class GoTouchGrassRepository(
         runCatching {
             val normalizedPlaceId = placeId.trim()
             if (normalizedPlaceId.isBlank()) return@runCatching
+            val captureXpAward = 120
 
             val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching
             val landmark =
@@ -118,8 +119,14 @@ open class GoTouchGrassRepository(
                     zoneId = landmark.zoneId,
                     landmarkId = landmark.id,
                     rarityAtTime = rarityScoreForLandmarkCategoryName(landmark.category),
-                    xpAwarded = 120
+                    xpAwarded = captureXpAward
                 )
+            )
+
+            // update user xp total on capture
+            dataSource.updateUserXpTotal(
+                userId = userRow.id,
+                newXpTotal = userRow.xpTotal + captureXpAward.toLong()
             )
         }
 

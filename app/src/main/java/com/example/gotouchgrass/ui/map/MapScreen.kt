@@ -317,6 +317,7 @@ fun MapScreen(
                 capturedPlaceIds = capturedPlaceIds + capturedPlaceId
                 captureTarget = null
                 selectedPoi = null
+                viewModel?.refresh()
             })
         return
     }
