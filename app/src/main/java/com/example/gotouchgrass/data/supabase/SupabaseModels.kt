@@ -44,7 +44,7 @@ data class LandmarkRow(
     val category: String,
     @SerialName("place_id") val placeId: String,
     @SerialName("created_by_user_id") val createdByUserId: Long? = null,
-    @SerialName("is_verified") val isVerified: Boolean
+    @SerialName("is_verified") val isVerified: Boolean? = null
 )
 
 @Serializable
@@ -162,4 +162,25 @@ data class VisitSessionRow(
     @SerialName("confidence_score") val confidenceScore: Double = 1.0,
     val source: String,
     @SerialName("is_study_session") val isStudySession: Boolean = false
+)
+
+@Serializable
+data class CaptureRow(
+    val id: Long,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("user_id") val userId: Long,
+    @SerialName("zone_id") val zoneId: Long,
+    @SerialName("landmark_id") val landmarkId: Long? = null,
+    @SerialName("captured_at") val capturedAt: String? = null,
+    @SerialName("rarity_at_time") val rarityAtTime: Double,
+    @SerialName("xp_awarded") val xpAwarded: Int
+)
+
+@Serializable
+data class CaptureInsert(
+    @SerialName("user_id") val userId: Long,
+    @SerialName("zone_id") val zoneId: Long,
+    @SerialName("landmark_id") val landmarkId: Long? = null,
+    @SerialName("rarity_at_time") val rarityAtTime: Double,
+    @SerialName("xp_awarded") val xpAwarded: Int
 )

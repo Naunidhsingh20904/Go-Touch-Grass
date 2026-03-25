@@ -2,6 +2,7 @@ package com.example.gotouchgrass.ui.map
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.location.Location
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -50,17 +51,17 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.gotouchgrass.data.FakeMapRepository
 import com.example.gotouchgrass.data.FakeProfileRepository
-import com.example.gotouchgrass.domain.FakeData
+import com.example.gotouchgrass.data.GoTouchGrassRepository
 import com.example.gotouchgrass.domain.MapModel
 import com.example.gotouchgrass.location.AppLocationTracker
 import com.example.gotouchgrass.ui.map.capture.CaptureScreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
-import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.net.FetchPhotoRequest
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.PlacesClient
 import com.google.maps.android.compose.Circle
@@ -70,63 +71,53 @@ import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
+import kotlinx.coroutines.CancellationException
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 
 private const val CAPTURE_RADIUS_METERS = 100f
 
 private fun hasLocationPermission(context: android.content.Context): Boolean {
     val fineGranted = ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_FINE_LOCATION
+        context, Manifest.permission.ACCESS_FINE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
     val coarseGranted = ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_COARSE_LOCATION
+        context, Manifest.permission.ACCESS_COARSE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
     return fineGranted || coarseGranted
 }
 
 private data class SelectedPoi(
-    val placeId: String,
-    val name: String,
-    val latLng: LatLng
+    val placeId: String, val name: String, val latLng: LatLng
 )
 
 private data class SelectedPoiInfo(
-    val zoneName: String?,
-    val categoryName: String?,
-    val ownerDisplayName: String?
+    val zoneName: String?
 )
 
-private fun selectedPoiInfo(selectedPoi: SelectedPoi): SelectedPoiInfo {
-    val matchedLandmark = FakeData.landmarks.firstOrNull { landmark ->
-        landmark.id == selectedPoi.placeId || landmark.name.equals(
-            selectedPoi.name,
-            ignoreCase = true
-        )
-    }
+private data class CaptureTarget(
+    val placeId: String, val placeName: String, val categoryName: String?, val photoBitmap: Bitmap?
+)
 
-    val zone = matchedLandmark?.let { landmark ->
-        FakeData.zones.firstOrNull { it.id == landmark.zoneId }
+private fun formatCaptureTimestamp(isoTimestamp: String?): String? {
+    return isoTimestamp?.let {
+        try {
+            val offsetDateTime = OffsetDateTime.parse(it)
+            val localDateTime = offsetDateTime.toLocalDateTime()
+            val formatter = DateTimeFormatter.ofPattern("MMM d, h:mm a")
+            localDateTime.format(formatter)
+        } catch (e: Exception) {
+            null
+        }
     }
-
-    val ownerDisplayName = zone?.let { matchedZone ->
-        FakeData.zoneOwnership
-            .firstOrNull { it.zoneId == matchedZone.id }
-            ?.ownerUserId
-            ?.let { ownerId -> FakeData.users.firstOrNull { it.id == ownerId }?.displayName }
-    }
-
-    return SelectedPoiInfo(
-        zoneName = zone?.name,
-        categoryName = matchedLandmark?.category?.name?.replace("_", " "),
-        ownerDisplayName = ownerDisplayName
-    )
 }
 
 @Composable
 fun MapScreen(
     selectedPlaceId: String? = null,
     placesClient: PlacesClient? = null,
+    repository: GoTouchGrassRepository? = null,
+    currentUserId: String? = null,
     viewModel: MapViewModel? = null,
     locationServicesEnabled: Boolean = true,
     locationTracker: AppLocationTracker,
@@ -139,9 +130,9 @@ fun MapScreen(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         isLocationPermissionGranted =
-            permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                    permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
-                    hasLocationPermission(context)
+            permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true || permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true || hasLocationPermission(
+                context
+            )
 
         if (!isLocationPermissionGranted) {
             locationTracker.stopTracking()
@@ -170,15 +161,32 @@ fun MapScreen(
         }
     }
 
-    var capturePlaceId by remember { mutableStateOf<String?>(null) }
+    var captureTarget by remember { mutableStateOf<CaptureTarget?>(null) }
     var selectedPoi by remember { mutableStateOf<SelectedPoi?>(null) }
     var capturedPlaceIds by remember { mutableStateOf(setOf<String>()) }
     var currentNearbyIndex by remember { mutableIntStateOf(0) }
+    var mappedInDbForSelectedPoi by remember { mutableStateOf<Boolean?>(null) }
+    var mappedCategoryForSelectedPoi by remember { mutableStateOf<String?>(null) }
+    var isResolvingMapping by remember { mutableStateOf(false) }
+    var isResolvingPoiInfo by remember { mutableStateOf(false) }
+    var selectedPoiPhoto by remember { mutableStateOf<Bitmap?>(null) }
+    var captureTimestamp by remember { mutableStateOf<String?>(null) }
 
     val savedCameraTarget = viewModel?.savedCameraTarget
     val savedCameraZoom = viewModel?.savedCameraZoom
     val initialCameraTarget = savedCameraTarget ?: effectiveUserLocation ?: LatLng(0.0, 0.0)
     val initialCameraZoom = savedCameraZoom ?: if (effectiveUserLocation != null) 16f else 2f
+
+    // idea and code to load captured place ids generated by Claude Haiku 4.5
+    LaunchedEffect(repository, currentUserId) {
+        if (repository == null || currentUserId == null) {
+            capturedPlaceIds = emptySet()
+            return@LaunchedEffect
+        }
+
+        val result = repository.getCapturedPlaceIdsByUserId(currentUserId)
+        capturedPlaceIds = result.getOrNull() ?: emptySet()
+    }
 
     LaunchedEffect(selectedPlaceId, placesClient) {
         if (selectedPlaceId != null && placesClient != null && selectedPoi == null) {
@@ -186,47 +194,130 @@ fun MapScreen(
             val request = FetchPlaceRequest.newInstance(selectedPlaceId, placeFields)
 
             // logic generated by Claude Haiku 4.5
-            placesClient.fetchPlace(request)
-                .addOnSuccessListener { response ->
-                    val place = response.place
-                    val latLng = place.latLng
-                    if (latLng != null) {
-                        selectedPoi = SelectedPoi(
-                            placeId = selectedPlaceId,
-                            name = place.name ?: "",
-                            latLng = latLng
-                        )
-                        onPlaceLoaded()
-                    }
+            placesClient.fetchPlace(request).addOnSuccessListener { response ->
+                val place = response.place
+                val latLng = place.latLng
+                if (latLng != null) {
+                    mappedInDbForSelectedPoi = null
+                    mappedCategoryForSelectedPoi = null
+                    isResolvingMapping = repository != null
+                    selectedPoiPhoto = null
+                    isResolvingPoiInfo = true
+                    captureTimestamp = null
+                    selectedPoi = SelectedPoi(
+                        placeId = selectedPlaceId, name = place.name ?: "", latLng = latLng
+                    )
+                    onPlaceLoaded()
                 }
-                .addOnFailureListener { exception ->
-                    if (exception is ApiException) {
-                        // Fallback to FakeData if API fails
-                        val landmark = FakeData.landmarks.firstOrNull { it.id == selectedPlaceId }
-                        landmark?.let {
-                            selectedPoi = SelectedPoi(
-                                placeId = it.id,
-                                name = it.name,
-                                latLng = LatLng(it.latLng.latitude, it.latLng.longitude)
-                            )
-                            onPlaceLoaded()
-                        }
-                    }
-                }
+            }
         }
     }
 
+    LaunchedEffect(selectedPoi?.placeId, placesClient) {
+        val poi = selectedPoi
+        if (poi == null || placesClient == null) {
+            selectedPoiPhoto = null
+            isResolvingPoiInfo = false
+            return@LaunchedEffect
+        }
 
+        isResolvingPoiInfo = true
+        // fetch photos from Places API
+        val detailFields = listOf(Place.Field.PHOTO_METADATAS)
+        val detailRequest = FetchPlaceRequest.newInstance(poi.placeId, detailFields)
+        val expectedPlaceId = poi.placeId
 
-    capturePlaceId?.let { placeId ->
+        placesClient.fetchPlace(detailRequest).addOnSuccessListener { response ->
+            if (selectedPoi?.placeId != expectedPlaceId) return@addOnSuccessListener
+            val place = response.place
+            isResolvingPoiInfo = false
+
+            val photoMetadata = place.photoMetadatas?.firstOrNull()
+            if (photoMetadata == null) {
+                selectedPoiPhoto = null
+                return@addOnSuccessListener
+            }
+
+            val photoRequest =
+                FetchPhotoRequest.builder(photoMetadata).setMaxWidth(1000).setMaxHeight(700)
+                    .build()
+
+            placesClient.fetchPhoto(photoRequest).addOnSuccessListener { photoResponse ->
+                if (selectedPoi?.placeId != expectedPlaceId) return@addOnSuccessListener
+                selectedPoiPhoto = photoResponse.bitmap
+            }.addOnFailureListener {
+                if (selectedPoi?.placeId != expectedPlaceId) return@addOnFailureListener
+                selectedPoiPhoto = null
+            }
+        }.addOnFailureListener {
+            if (selectedPoi?.placeId != expectedPlaceId) return@addOnFailureListener
+            selectedPoiPhoto = null
+            isResolvingPoiInfo = false
+        }
+    }
+
+    LaunchedEffect(selectedPoi?.placeId, repository) {
+        val poi = selectedPoi
+        if (poi == null) {
+            mappedInDbForSelectedPoi = null
+            mappedCategoryForSelectedPoi = null
+            isResolvingMapping = false
+            return@LaunchedEffect
+        }
+
+        if (repository == null) {
+            mappedInDbForSelectedPoi = null
+            mappedCategoryForSelectedPoi = null
+            isResolvingMapping = false
+            return@LaunchedEffect
+        }
+
+        isResolvingMapping = true
+        // is this poi mapped
+        val mappingResult = repository.getMappedLandmarkCategoryForPlaceId(poi.placeId)
+        val category = mappingResult.getOrNull()
+        val error = mappingResult.exceptionOrNull()
+
+        if (error is CancellationException) {
+            mappedInDbForSelectedPoi = null
+            mappedCategoryForSelectedPoi = null
+            isResolvingMapping = false
+            return@LaunchedEffect
+        }
+
+        mappedCategoryForSelectedPoi = if (mappingResult.isSuccess) category else null
+        mappedInDbForSelectedPoi = mappingResult.isSuccess && category != null
+        isResolvingMapping = false
+    }
+
+    LaunchedEffect(selectedPoi?.placeId, repository, currentUserId) {
+        val poi = selectedPoi
+        if (poi == null || repository == null || currentUserId == null || !capturedPlaceIds.contains(
+                poi.placeId
+            )
+        ) {
+            captureTimestamp = null
+            return@LaunchedEffect
+        }
+
+        val result = repository.getLatestCaptureDateForPlaceId(currentUserId, poi.placeId)
+        captureTimestamp = result.getOrNull()
+    }
+
+    captureTarget?.let { target ->
         CaptureScreen(
-            placeId = placeId,
-            onClose = { },
+            placeId = target.placeId,
+            placeName = target.placeName,
+            categoryName = target.categoryName,
+            placePhotoBitmap = target.photoBitmap,
+            repository = repository,
+            currentUserId = currentUserId,
+            onClose = { captureTarget = null },
             onCaptured = { capturedPlaceId ->
                 capturedPlaceIds = capturedPlaceIds + capturedPlaceId
+                captureTarget = null
                 selectedPoi = null
-            }
-        )
+            })
         return
     }
 
@@ -255,18 +346,14 @@ fun MapScreen(
         if (!movedEnough) return@LaunchedEffect
 
         val cameraUpdate = CameraUpdateFactory.newCameraPosition(
-            CameraPosition.Builder()
-                .target(location)
-                .zoom(16f)
-                .build()
+            CameraPosition.Builder().target(location).zoom(16f).build()
         )
 
         if (viewModel?.hasFocusedOnUserLocation == true) {
             cameraPositionState.move(cameraUpdate)
         } else {
             cameraPositionState.animate(
-                update = cameraUpdate,
-                durationMs = 900
+                update = cameraUpdate, durationMs = 900
             )
             viewModel?.markUserLocationFocused()
         }
@@ -287,11 +374,8 @@ fun MapScreen(
             val currentPosition = cameraPositionState.position
             cameraPositionState.animate(
                 update = CameraUpdateFactory.newCameraPosition(
-                    CameraPosition.Builder(currentPosition)
-                        .target(poi.latLng)
-                        .build()
-                ),
-                durationMs = 1000
+                    CameraPosition.Builder(currentPosition).target(poi.latLng).build()
+                ), durationMs = 1000
             )
         }
     }
@@ -309,13 +393,16 @@ fun MapScreen(
             ),
             contentPadding = PaddingValues(top = 100.dp, bottom = 160.dp),
             onPOIClick = { poi ->
+                mappedInDbForSelectedPoi = null
+                mappedCategoryForSelectedPoi = null
+                isResolvingMapping = repository != null
+                selectedPoiPhoto = null
+                isResolvingPoiInfo = placesClient != null
+                captureTimestamp = null
                 selectedPoi = SelectedPoi(
-                    placeId = poi.placeId,
-                    name = poi.name,
-                    latLng = poi.latLng
+                    placeId = poi.placeId, name = poi.name, latLng = poi.latLng
                 )
-            }
-        ) {
+            }) {
             effectiveUserLocation?.let { location ->
                 Circle(
                     center = location,
@@ -331,8 +418,7 @@ fun MapScreen(
             // add marker at selected location
             selectedPoi?.let { poi ->
                 Marker(
-                    state = MarkerState(position = poi.latLng),
-                    title = poi.name
+                    state = MarkerState(position = poi.latLng), title = poi.name
                 )
             }
         }
@@ -375,13 +461,11 @@ fun MapScreen(
                         ),
                     onNext = {
                         currentNearbyIndex = (currentNearbyIndex + 1) % routes.size
-                    }
-                )
+                    })
             }
         }
 
         selectedPoi?.let { poi ->
-            val info = remember(poi.placeId, poi.name) { selectedPoiInfo(poi) }
             val distanceResult = FloatArray(1)
             val distanceMeters = effectiveUserLocation?.let { location ->
                 Location.distanceBetween(
@@ -396,16 +480,24 @@ fun MapScreen(
             val isNearby = distanceMeters != null && distanceMeters <= CAPTURE_RADIUS_METERS
             CapturePoiPopup(
                 selectedPoi = poi,
-                info = info,
+                isResolvingPoiInfo = isResolvingPoiInfo,
+                isMapped = mappedInDbForSelectedPoi,
+                isResolvingMapping = isResolvingMapping,
                 isNearby = isNearby,
                 distanceMeters = distanceMeters,
                 isCaptured = capturedPlaceIds.contains(poi.placeId),
+                captureTimestamp = captureTimestamp,
                 onCapture = {
-                    selectedPoi = null
-                    poi.placeId
+                    val alreadyCaptured = capturedPlaceIds.contains(poi.placeId)
+                    if (mappedInDbForSelectedPoi != true || alreadyCaptured) return@CapturePoiPopup
+                    captureTarget = CaptureTarget(
+                        placeId = poi.placeId,
+                        placeName = poi.name,
+                        categoryName = mappedCategoryForSelectedPoi,
+                        photoBitmap = selectedPoiPhoto
+                    )
                 },
-                onClose = { selectedPoi = null }
-            )
+                onClose = { selectedPoi = null })
         }
 
         if (!locationServicesEnabled || !isLocationPermissionGranted) {
@@ -424,17 +516,14 @@ fun MapScreen(
                             Manifest.permission.ACCESS_COARSE_LOCATION
                         )
                     )
-                }
-            )
+                })
         }
     }
 }
 
 @Composable
 private fun LocationRequiredOverlay(
-    message: String,
-    showPermissionAction: Boolean,
-    onRequestPermission: () -> Unit
+    message: String, showPermissionAction: Boolean, onRequestPermission: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -457,12 +546,10 @@ private fun LocationRequiredOverlay(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Current location required",
-                    style = MaterialTheme.typography.titleMedium
+                    text = "Current location required", style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium
+                    text = message, style = MaterialTheme.typography.bodyMedium
                 )
 
                 if (showPermissionAction) {
@@ -477,11 +564,7 @@ private fun LocationRequiredOverlay(
 
 @Composable
 private fun MapHeaderOverlay(
-    level: Int,
-    currentXp: Int,
-    maxXp: Int,
-    xpToNext: Int,
-    modifier: Modifier = Modifier
+    level: Int, currentXp: Int, maxXp: Int, xpToNext: Int, modifier: Modifier = Modifier
 ) {
     val cardSurface = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
     val border = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
@@ -511,13 +594,10 @@ private fun MapHeaderOverlay(
                         modifier = Modifier
                             .size(20.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(accent),
-                        contentAlignment = Alignment.Center
+                            .background(accent), contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = level.toString(),
-                            fontSize = 10.sp,
-                            color = onAccent
+                            text = level.toString(), fontSize = 10.sp, color = onAccent
                         )
                     }
 
@@ -538,8 +618,7 @@ private fun MapHeaderOverlay(
                 LinearProgressIndicator(
                     progress = {
                         if (maxXp <= 0) 0f else (currentXp.toFloat() / maxXp.toFloat()).coerceIn(
-                            0f,
-                            1f
+                            0f, 1f
                         )
                     },
                     modifier = Modifier
@@ -548,8 +627,7 @@ private fun MapHeaderOverlay(
                         .clip(RoundedCornerShape(2.dp)),
                     color = accent,
                     trackColor = onSurface.copy(alpha = 0.08f),
-                    drawStopIndicator = {}
-                )
+                    drawStopIndicator = {})
 
                 Text(
                     text = "$xpToNext XP to next",
@@ -585,8 +663,7 @@ private fun NearbyAreasOverlay(
         Column(
             modifier = Modifier
                 .clickable { onNext() }
-                .padding(horizontal = 14.dp, vertical = 12.dp)
-        ) {
+                .padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -597,10 +674,7 @@ private fun NearbyAreasOverlay(
                         text = "${
                             route.theme.name.replace("_", " ").lowercase()
                                 .replaceFirstChar { it.uppercase() }
-                        } · nearby",
-                        fontSize = 10.sp,
-                        color = muted
-                    )
+                        } · nearby", fontSize = 10.sp, color = muted)
                     Text(
                         text = route.title,
                         fontSize = 14.sp,
@@ -621,15 +695,12 @@ private fun NearbyAreasOverlay(
                     onClick = { /* TODO */ },
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = accent,
-                        contentColor = onAccent
+                        containerColor = accent, contentColor = onAccent
                     ),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "Start",
-                        fontSize = 11.sp,
-                        color = onAccent
+                        text = "Start", fontSize = 11.sp, color = onAccent
                     )
                 }
             }
@@ -647,8 +718,7 @@ private fun NearbyAreasOverlay(
                             .size(width = if (active) 18.dp else 6.dp, height = 4.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(if (active) accent else onSurface.copy(alpha = 0.15f))
-                            .clickable { onNext() }
-                    )
+                            .clickable { onNext() })
                 }
             }
         }
@@ -659,10 +729,13 @@ private fun NearbyAreasOverlay(
 @Composable
 private fun CapturePoiPopup(
     selectedPoi: SelectedPoi,
-    info: SelectedPoiInfo,
+    isResolvingPoiInfo: Boolean,
+    isMapped: Boolean?,
+    isResolvingMapping: Boolean,
     isNearby: Boolean,
     distanceMeters: Float?,
     isCaptured: Boolean,
+    captureTimestamp: String?,
     onCapture: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -670,8 +743,7 @@ private fun CapturePoiPopup(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f))
-            .clickable { onClose() }
-    ) {
+            .clickable { onClose() }) {
         Card(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -686,40 +758,38 @@ private fun CapturePoiPopup(
                 verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
             ) {
                 Text(
-                    text = selectedPoi.name,
-                    style = MaterialTheme.typography.titleMedium
+                    text = selectedPoi.name, style = MaterialTheme.typography.titleMedium
                 )
 
-                info.zoneName?.let { zoneName ->
+                if (isResolvingPoiInfo) {
                     Text(
-                        text = "Zone: $zoneName",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-
-                info.categoryName?.let { categoryName ->
-                    Text(
-                        text = "Category: $categoryName",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                info.ownerDisplayName?.let { ownerDisplayName ->
-                    Text(
-                        text = "Owned by: $ownerDisplayName",
+                        text = "Loading place details...",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
 
                 Text(
                     text = when {
-                        isCaptured -> "Already captured."
+                        isResolvingPoiInfo || isResolvingMapping || isMapped == null -> "Loading location..."
+                        !isMapped -> "Unmapped landmark. Capture unavailable."
                         distanceMeters == null -> "Location unavailable."
                         isNearby -> "Nearby (${distanceMeters.toInt()}m)"
                         else -> "Move closer (${distanceMeters.toInt()}m)"
-                    },
-                    style = MaterialTheme.typography.bodySmall
+                    }, style = MaterialTheme.typography.bodySmall
                 )
+
+                // Show capture timestamp if already captured
+                if (isCaptured && captureTimestamp != null) {
+                    Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingXs))
+                    val formattedTime = formatCaptureTimestamp(captureTimestamp)
+                    if (formattedTime != null) {
+                        Text(
+                            text = "Captured: $formattedTime",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingXs))
 
@@ -729,11 +799,13 @@ private fun CapturePoiPopup(
                 ) {
                     Button(
                         onClick = onCapture,
-                        enabled = isNearby && !isCaptured,
+                        enabled = !isResolvingMapping && isMapped == true && isNearby && !isCaptured,
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
                             when {
+                                isResolvingPoiInfo || isResolvingMapping || isMapped == null -> "Loading"
+                                !isMapped -> "Unavailable"
                                 isCaptured -> "Captured"
                                 isNearby -> "Capture"
                                 else -> "Not Nearby"
@@ -742,8 +814,7 @@ private fun CapturePoiPopup(
                     }
 
                     Button(
-                        onClick = onClose,
-                        modifier = Modifier.weight(1f)
+                        onClick = onClose, modifier = Modifier.weight(1f)
                     ) {
                         Text("Close")
                     }
@@ -773,8 +844,7 @@ fun MapScreenPreview() {
         val context = LocalContext.current
         val locationTracker = remember { AppLocationTracker(context.applicationContext) }
         MapScreen(
-            viewModel = vm,
-            locationTracker = locationTracker
+            viewModel = vm, locationTracker = locationTracker
         )
     }
 }

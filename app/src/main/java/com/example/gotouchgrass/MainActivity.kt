@@ -27,42 +27,41 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.gotouchgrass.data.GoTouchGrassRepository
+import com.example.gotouchgrass.data.MapRepository
+import com.example.gotouchgrass.data.ProfileRepository
+import com.example.gotouchgrass.data.SupabaseMapRepository
+import com.example.gotouchgrass.data.SupabaseProfileRepository
+import com.example.gotouchgrass.data.auth.AuthService
+import com.example.gotouchgrass.data.preferences.AppPreferencesStore
+import com.example.gotouchgrass.data.supabase.SupabaseDataSource
+import com.example.gotouchgrass.domain.MapModel
+import com.example.gotouchgrass.domain.ProfileModel
+import com.example.gotouchgrass.location.AppLocationTracker
 import com.example.gotouchgrass.ui.explore.ExploreScreen
 import com.example.gotouchgrass.ui.explore.ExploreViewModel
-import com.google.android.libraries.places.api.Places
-import com.google.android.libraries.places.api.net.PlacesClient
+import com.example.gotouchgrass.ui.map.MapScreen
+import com.example.gotouchgrass.ui.map.MapViewModel
 import com.example.gotouchgrass.ui.screens.AuthScreen
 import com.example.gotouchgrass.ui.screens.AuthViewModel
 import com.example.gotouchgrass.ui.screens.ProfileScreen
-import com.example.gotouchgrass.ui.map.MapScreen
-import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
-
+import com.example.gotouchgrass.ui.screens.ProfileViewModel
 import com.example.gotouchgrass.ui.search.SearchScreen
 import com.example.gotouchgrass.ui.search.SearchViewModel
-import com.example.gotouchgrass.data.preferences.AppPreferencesStore
 import com.example.gotouchgrass.ui.settings.SettingsFlow
-import com.example.gotouchgrass.ui.screens.ProfileViewModel
 import com.example.gotouchgrass.ui.settings.SettingsViewModel
-import com.example.gotouchgrass.data.ProfileRepository
-import com.example.gotouchgrass.data.SupabaseProfileRepository
-import com.example.gotouchgrass.domain.ProfileModel
 import com.example.gotouchgrass.ui.stats.StatsScreen
 import com.example.gotouchgrass.ui.stats.StatsViewModel
-import com.example.gotouchgrass.data.GoTouchGrassRepository
-import com.example.gotouchgrass.data.MapRepository
-import com.example.gotouchgrass.data.SupabaseMapRepository
-import com.example.gotouchgrass.data.auth.AuthService
-import com.example.gotouchgrass.data.supabase.SupabaseDataSource
-import com.example.gotouchgrass.domain.MapModel
-import com.example.gotouchgrass.location.AppLocationTracker
-import com.example.gotouchgrass.ui.map.MapViewModel
+import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.net.PlacesClient
+import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.auth.Auth
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -91,10 +90,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Preview(
-    name = "Phone",
-    showBackground = true,
-    widthDp = 360,
-    heightDp = 800
+    name = "Phone", showBackground = true, widthDp = 360, heightDp = 800
 )
 @Composable
 fun GoTouchGrassAppPreview() {
@@ -129,13 +125,10 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
         val mapRepository: MapRepository = remember { SupabaseMapRepository(repository) }
         val searchViewModel = remember(currentUserId) {
             SearchViewModel(
-                currentUserId = currentUserId,
-                repository = repository,
-                onSelectPlace = { placeId ->
+                currentUserId = currentUserId, repository = repository, onSelectPlace = { placeId ->
                     selectedMapPlaceId = placeId
                     currentDestination = AppDestinations.MAP
-                }
-            )
+                })
         }
         val exploreViewModel = remember(currentUserId) {
             currentUserId?.let { ExploreViewModel(currentUserId = it, repository = repository) }
@@ -146,8 +139,7 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
         val profileViewModel = remember(currentUserId) {
             currentUserId?.let { userId ->
                 val model = ProfileModel(
-                    currentUserId = userId,
-                    repository = profileRepository
+                    currentUserId = userId, repository = profileRepository
                 )
                 ProfileViewModel(model = model)
             }
@@ -165,9 +157,7 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
         val authViewModel = remember { AuthViewModel() }
         val settingsViewModel = remember(currentUserId, appPrefs) {
             SettingsViewModel(
-                userId = currentUserId,
-                repository = repository,
-                appPreferencesStore = appPrefs
+                userId = currentUserId, repository = repository, appPreferencesStore = appPrefs
             )
         }
         var placesClient by remember { mutableStateOf<PlacesClient?>(null) }
@@ -202,38 +192,29 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
         }
 
         if (!isAuthenticated) {
-            AuthScreen(
-                viewModel = authViewModel,
-                onSignIn = { email, password ->
-                    coroutineScope.launch {
-                        authService.signIn(email, password)
-                            .onSuccess { user ->
-                                authError = null
-                                currentUserId = user.id
-                                isAuthenticated = true
-                            }
-                            .onFailure { error ->
-                                authError = error.message
-                            }
+            AuthScreen(viewModel = authViewModel, onSignIn = { email, password ->
+                coroutineScope.launch {
+                    authService.signIn(email, password).onSuccess { user ->
+                        authError = null
+                        currentUserId = user.id
+                        isAuthenticated = true
+                    }.onFailure { error ->
+                        authError = error.message
                     }
-                },
-                onSignUp = { username, email, password ->
-                    coroutineScope.launch {
-                        authService.signUp(email, password, username)
-                            .onSuccess { user ->
-                                authError = null
-                                currentUserId = user.id
-                                isAuthenticated = true
-                            }
-                            .onFailure { error ->
-                                authError = error.message
-                            }
-                    }
-                },
-                onForgotPassword = {
-                    // TODO: Implement forgot password
                 }
-            )
+            }, onSignUp = { username, email, password ->
+                coroutineScope.launch {
+                    authService.signUp(email, password, username).onSuccess { user ->
+                        authError = null
+                        currentUserId = user.id
+                        isAuthenticated = true
+                    }.onFailure { error ->
+                        authError = error.message
+                    }
+                }
+            }, onForgotPassword = {
+                // TODO: Implement forgot password
+            })
             if (!authError.isNullOrBlank()) {
                 Text(
                     text = authError ?: "Authentication failed",
@@ -263,8 +244,7 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                                         currentDestination = AppDestinations.MAP
                                         authError = null
                                     }
-                                }
-                            )
+                                })
                         } else {
                             Text("Loading account…")
                         }
@@ -277,17 +257,14 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                             item(
                                 icon = {
                                     Icon(
-                                        it.icon,
-                                        contentDescription = it.label
+                                        it.icon, contentDescription = it.label
                                     )
                                 },
                                 label = { Text(it.label) },
                                 selected = it == currentDestination,
-                                onClick = { currentDestination = it }
-                            )
+                                onClick = { currentDestination = it })
                         }
-                    }
-                ) {
+                    }) {
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                         Box(Modifier.padding(innerPadding)) {
                             when (currentDestination) {
@@ -310,8 +287,7 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                                     if (profileViewModel != null) {
                                         ProfileScreen(
                                             viewModel = profileViewModel,
-                                            onSettingsClick = { showSettings = true }
-                                        )
+                                            onSettingsClick = { showSettings = true })
                                     } else {
                                         Text("Loading profile...")
                                     }
@@ -320,6 +296,8 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                                 AppDestinations.MAP -> MapScreen(
                                     selectedPlaceId = selectedMapPlaceId,
                                     placesClient = placesClient,
+                                    repository = repository,
+                                    currentUserId = currentUserId,
                                     viewModel = mapViewModel,
                                     locationServicesEnabled = settingsViewModel.preferences.locationServicesEnabled,
                                     locationTracker = locationTracker
@@ -340,17 +318,8 @@ enum class AppDestinations(
     val label: String,
     val icon: ImageVector,
 ) {
-    MAP("Map", Icons.Default.Home),
-    EXPLORE("Explore", Icons.Default.LocationOn),
-    SEARCH("Search", Icons.Default.Search),
-    STATS("Stats", Icons.Default.Share),
-    PROFILE("Profile", Icons.Default.Face)
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Gotouchgrass",
-        modifier = modifier
-    )
+    MAP("Map", Icons.Default.Home), EXPLORE("Explore", Icons.Default.LocationOn), SEARCH(
+        "Search", Icons.Default.Search
+    ),
+    STATS("Stats", Icons.Default.Share), PROFILE("Profile", Icons.Default.Face)
 }

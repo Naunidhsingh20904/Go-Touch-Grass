@@ -1,10 +1,11 @@
 package com.example.gotouchgrass.domain
 
+import com.example.gotouchgrass.R
+
 // Core value objects
 
 data class LatLng(
-    val latitude: Double,
-    val longitude: Double
+    val latitude: Double, val longitude: Double
 )
 
 data class GeoCell(
@@ -29,20 +30,15 @@ data class User(
 )
 
 enum class MapVisibilityMode {
-    FRIENDS_ONLY,
-    CITY_LEVEL,
-    GLOBAL
+    FRIENDS_ONLY, CITY_LEVEL, GLOBAL
 }
 
 enum class UnitsPreference {
-    METRIC,
-    IMPERIAL
+    METRIC, IMPERIAL
 }
 
 enum class ThemePreference {
-    SYSTEM,
-    LIGHT,
-    DARK
+    SYSTEM, LIGHT, DARK
 }
 
 data class UserSettings(
@@ -66,10 +62,7 @@ data class City(
 )
 
 enum class ZoneType {
-    CAMPUS,
-    BUILDING,
-    NEIGHBORHOOD,
-    PARK
+    CAMPUS, BUILDING, NEIGHBORHOOD, PARK
 }
 
 data class Zone(
@@ -82,17 +75,47 @@ data class Zone(
 )
 
 enum class LandmarkCategory {
-    MURAL,
-    STATUE,
-    LOUNGE,
-    CAFE,
-    FOOD,
-    TRANSPORTATION,
-    EDUCATION,
-    GYM,
-    PARK,
-    STUDY_SPOT,
-    OTHER
+    MURAL, STATUE, LOUNGE, CAFE, FOOD, TRANSPORTATION, EDUCATION, GYM, PARK, STUDY_SPOT, OTHER
+}
+
+fun rarityScoreForLandmarkCategory(category: LandmarkCategory): Double {
+    return when (category) {
+        LandmarkCategory.PARK -> 0.10
+        LandmarkCategory.STUDY_SPOT -> 0.91
+        LandmarkCategory.CAFE -> 0.35
+        LandmarkCategory.FOOD -> 0.40
+        LandmarkCategory.TRANSPORTATION -> 0.30
+        LandmarkCategory.EDUCATION -> 0.73
+        LandmarkCategory.GYM -> 0.73
+        LandmarkCategory.LOUNGE -> 0.52
+        LandmarkCategory.MURAL -> 0.92
+        LandmarkCategory.STATUE -> 0.83
+        LandmarkCategory.OTHER -> 0.20
+    }
+}
+
+fun rarityScoreForLandmarkCategoryName(categoryName: String): Double {
+    val parsedCategory = runCatching {
+        LandmarkCategory.valueOf(categoryName.trim().uppercase())
+    }.getOrNull()
+
+    return rarityScoreForLandmarkCategory(parsedCategory ?: LandmarkCategory.OTHER)
+}
+
+fun iconResForLandmarkCategory(category: LandmarkCategory): Int {
+    return when (category) {
+        LandmarkCategory.PARK -> R.drawable.nature_24
+        LandmarkCategory.CAFE -> R.drawable.coffee_24
+        LandmarkCategory.FOOD -> R.drawable.chef_hat_24
+        LandmarkCategory.STUDY_SPOT -> R.drawable.book_2_24dp
+        LandmarkCategory.EDUCATION -> R.drawable.school_24dp
+        LandmarkCategory.TRANSPORTATION -> R.drawable.directions_walk_24
+        LandmarkCategory.GYM -> R.drawable.exercise_24dp
+        LandmarkCategory.LOUNGE -> R.drawable.chair_24dp
+        LandmarkCategory.MURAL -> R.drawable.image_inset_24dp
+        LandmarkCategory.STATUE -> R.drawable.architecture_24dp
+        LandmarkCategory.OTHER -> R.drawable.location_city_24
+    }
 }
 
 data class Landmark(
@@ -111,8 +134,7 @@ data class Landmark(
 // 3) Location + time spent (core tracking)
 
 enum class LocationSource {
-    GPS,
-    WIFI
+    GPS, WIFI
 }
 
 data class LocationPing(
@@ -127,8 +149,7 @@ data class LocationPing(
 )
 
 enum class VisitSessionSource {
-    AUTO,
-    MANUAL_ADJUSTED
+    AUTO, MANUAL_ADJUSTED
 }
 
 data class VisitSession(
@@ -144,8 +165,7 @@ data class VisitSession(
 )
 
 enum class ZoneEntryEventType {
-    ENTER,
-    EXIT
+    ENTER, EXIT
 }
 
 data class ZoneEntryEvent(
@@ -159,9 +179,7 @@ data class ZoneEntryEvent(
 // 4) Capturing, ownership, XP, rewards (gamification loop)
 
 enum class CaptureProofType {
-    GPS,
-    GEOFENCE,
-    QR
+    GPS, GEOFENCE, QR
 }
 
 data class Capture(
@@ -185,9 +203,7 @@ data class ZoneOwnership(
 )
 
 enum class OwnershipChangeReason {
-    CAPTURED,
-    CONTESTED,
-    DECAYED
+    CAPTURED, CONTESTED, DECAYED
 }
 
 data class ZoneOwnershipHistory(
@@ -200,10 +216,7 @@ data class ZoneOwnershipHistory(
 )
 
 enum class XPEventType {
-    VISIT_TIME,
-    CAPTURE,
-    BONUS,
-    CHALLENGE
+    VISIT_TIME, CAPTURE, BONUS, CHALLENGE
 }
 
 data class XPEvent(
@@ -218,11 +231,7 @@ data class XPEvent(
 // 5) Badges, milestones, streaks, completion
 
 enum class BadgeRuleType {
-    SIMPLE_THRESHOLD,
-    STREAK,
-    EXPLORATION,
-    SOCIAL,
-    CUSTOM
+    SIMPLE_THRESHOLD, STREAK, EXPLORATION, SOCIAL, CUSTOM
 }
 
 data class Badge(
@@ -235,9 +244,7 @@ data class Badge(
 )
 
 data class UserBadge(
-    val userId: String,
-    val badgeId: String,
-    val earnedAtIso: String
+    val userId: String, val badgeId: String, val earnedAtIso: String
 )
 
 data class MilestoneProgress(
@@ -248,8 +255,7 @@ data class MilestoneProgress(
 )
 
 enum class StreakType {
-    DAILY_EXPLORE,
-    WEEKLY_CAPTURE
+    DAILY_EXPLORE, WEEKLY_CAPTURE
 }
 
 data class Streak(
@@ -271,16 +277,11 @@ data class CityCompletion(
 // 6) Challenges and expeditions (light guidance)
 
 enum class ChallengeTimeWindow {
-    DAILY,
-    WEEKLY
+    DAILY, WEEKLY
 }
 
 enum class ChallengeType {
-    VISIT,
-    EXPLORE,
-    TIME,
-    ZONE,
-    SOCIAL
+    VISIT, EXPLORE, TIME, ZONE, SOCIAL
 }
 
 data class Challenge(
@@ -303,18 +304,11 @@ data class ChallengeProgress(
 )
 
 enum class RouteTheme {
-    MURALS,
-    PARKS,
-    HIDDEN_STUDY_SPOTS,
-    FOOD,
-    DRINKS,
-    CITY_HIGHLIGHTS
+    MURALS, PARKS, HIDDEN_STUDY_SPOTS, FOOD, DRINKS, CITY_HIGHLIGHTS
 }
 
 enum class RouteDifficulty {
-    EASY,
-    MEDIUM,
-    HARD
+    EASY, MEDIUM, HARD
 }
 
 data class Route(
@@ -348,9 +342,7 @@ data class UserRouteProgress(
 // 7) Social layer: friends, competition, leaderboards
 
 enum class FriendshipStatus {
-    PENDING,
-    ACCEPTED,
-    BLOCKED
+    PENDING, ACCEPTED, BLOCKED
 }
 
 data class Friendship(
@@ -362,20 +354,15 @@ data class Friendship(
 )
 
 enum class LeaderboardScope {
-    CAMPUS,
-    CITY,
-    GLOBAL,
-    FRIENDS
+    CAMPUS, CITY, GLOBAL, FRIENDS
 }
 
 enum class LeaderboardMetric {
-    XP_WEEK,
-    ZONES_CAPTURED
+    XP_WEEK, ZONES_CAPTURED
 }
 
 enum class LeaderboardPeriod {
-    WEEKLY,
-    MONTHLY
+    WEEKLY, MONTHLY
 }
 
 data class Leaderboard(
@@ -394,9 +381,7 @@ data class LeaderboardEntry(
 )
 
 enum class ZoneActivityType {
-    CAPTURE,
-    VISIT,
-    OWNERSHIP_CHANGE
+    CAPTURE, VISIT, OWNERSHIP_CHANGE
 }
 
 data class ZoneActivity(
@@ -411,8 +396,7 @@ data class ZoneActivity(
 // 8) Media integrations (transit playlists / contextual media)
 
 enum class PlaylistProvider {
-    SPOTIFY,
-    APPLE
+    SPOTIFY, APPLE
 }
 
 data class ZonePlaylist(
@@ -440,10 +424,7 @@ data class ExplorationSummary(
 // 10) Privacy, safety
 
 data class ApproxPresence(
-    val userId: String,
-    val zoneId: String?,
-    val hashCell: GeoCell,
-    val lastUpdatedAtIso: String
+    val userId: String, val zoneId: String?, val hashCell: GeoCell, val lastUpdatedAtIso: String
 )
 
 // 11) UI data models — Settings
@@ -465,15 +446,11 @@ data class WeeklySummary(
 )
 
 data class StreakData(
-    val currentDays: Int,
-    val bestDays: Int
+    val currentDays: Int, val bestDays: Int
 )
 
 data class LifetimeStats(
-    val totalXp: Int,
-    val coinsEarned: Int,
-    val totalDistanceKm: Float,
-    val citiesExplored: Int
+    val totalXp: Int, val coinsEarned: Int, val totalDistanceKm: Float, val citiesExplored: Int
 )
 
 data class LeaderboardData(
