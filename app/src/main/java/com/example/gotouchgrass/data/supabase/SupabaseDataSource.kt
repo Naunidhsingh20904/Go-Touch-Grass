@@ -23,12 +23,11 @@ open class SupabaseDataSource(
         const val TABLE_USER_SETTINGS = "user_settings"
         const val TABLE_STREAKS = "streak"
         const val TABLE_VISIT_SESSIONS = "visit_session"
+        const val TABLE_CAPTURES = "capture"
     }
 
     suspend fun getUserById(userId: String): Result<User?> = runCatching {
-        val users = supabaseClient.from(TABLE_USERS)
-            .select()
-            .decodeList<UserRow>()
+        val users = supabaseClient.from(TABLE_USERS).select().decodeList<UserRow>()
 
         users.firstOrNull { it.authUserId == userId }?.toDomainUser()
     }
@@ -105,6 +104,47 @@ open class SupabaseDataSource(
     suspend fun fetchRoutes(): List<RouteRow> =
         supabaseClient.from(TABLE_ROUTES).select().decodeList<RouteRow>()
 
+    suspend fun fetchLandmarkByPlaceId(placeId: String): LandmarkRow? =
+        supabaseClient.from(TABLE_LANDMARKS).select {
+            filter { eq("place_id", placeId.trim()) }
+            limit(1)
+        }.decodeList<LandmarkRow>().firstOrNull()
+
+    suspend fun fetchLandmarksByIds(ids: List<Long>): List<LandmarkRow> {
+        if (ids.isEmpty()) return emptyList()
+        return supabaseClient.from(TABLE_LANDMARKS).select {
+            filter { isIn("id", ids) }
+        }.decodeList<LandmarkRow>()
+    }
+
+    suspend fun hasCaptureForUserAndLandmark(userId: Long, landmarkId: Long): Boolean =
+        supabaseClient.from(TABLE_CAPTURES).select {
+            filter {
+                eq("user_id", userId)
+                eq("landmark_id", landmarkId)
+            }
+            limit(1)
+        }.decodeList<CaptureRow>().isNotEmpty()
+
+    suspend fun fetchLatestCaptureByUserAndLandmark(userId: Long, landmarkId: Long): CaptureRow? =
+        supabaseClient.from(TABLE_CAPTURES).select {
+            filter {
+                eq("user_id", userId)
+                eq("landmark_id", landmarkId)
+            }
+            order("created_at", Order.DESCENDING)
+            limit(1)
+        }.decodeList<CaptureRow>().firstOrNull()
+
+    suspend fun fetchCapturedLandmarkIdsByUser(userId: Long): List<Long> =
+        supabaseClient.from(TABLE_CAPTURES).select {
+            filter { eq("user_id", userId) }
+        }.decodeList<CaptureRow>().mapNotNull { it.landmarkId }.distinct()
+
+    suspend fun insertCapture(row: CaptureInsert) {
+        supabaseClient.from(TABLE_CAPTURES).insert(row)
+    }
+
     suspend fun fetchAllRouteStops(): List<RouteStopRow> =
         supabaseClient.from(TABLE_ROUTE_STOPS).select().decodeList<RouteStopRow>()
 
@@ -115,8 +155,7 @@ open class SupabaseDataSource(
         }.decodeList<UserSettingsRow>().firstOrNull()
 
     suspend fun upsertUserSettings(row: UserSettingsUpsert) {
-        supabaseClient.from(TABLE_USER_SETTINGS)
-            .upsert(row) { onConflict = "user_id" }
+        supabaseClient.from(TABLE_USER_SETTINGS).upsert(row) { onConflict = "user_id" }
     }
 
     suspend fun fetchLeaderboardUsers(limit: Int = 20): List<UserRow> =
@@ -134,11 +173,13 @@ open class SupabaseDataSource(
             limit(1)
         }.decodeList<StreakRow>().firstOrNull()
 
-    suspend fun fetchWeeklyVisitSessions(userId: Long, weekStartIso: String): List<VisitSessionRow> =
-        supabaseClient.from(TABLE_VISIT_SESSIONS).select {
-            filter {
-                eq("user_id", userId)
-                gte("started_at", weekStartIso)
-            }
-        }.decodeList()
+    suspend fun fetchWeeklyVisitSessions(
+        userId: Long,
+        weekStartIso: String
+    ): List<VisitSessionRow> = supabaseClient.from(TABLE_VISIT_SESSIONS).select {
+        filter {
+            eq("user_id", userId)
+            gte("started_at", weekStartIso)
+        }
+    }.decodeList()
 }
