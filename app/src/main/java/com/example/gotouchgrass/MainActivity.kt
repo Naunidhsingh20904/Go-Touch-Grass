@@ -233,7 +233,6 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                                 viewModel = settingsViewModel,
                                 authService = authService,
                                 profileViewModel = profileViewModel,
-                                currentUserId = uid,
                                 onBackClick = { showSettings = false },
                                 onLogoutClick = {
                                     coroutineScope.launch {

@@ -1,13 +1,20 @@
 package com.example.gotouchgrass.ui.settings
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -23,20 +30,25 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.gotouchgrass.domain.avatarPresets
 
 @Composable
 fun EditProfileDialog(
     initialUsername: String,
+    initialAvatarKey: String?,
     email: String,
     isSaving: Boolean,
     errorMessage: String?,
     onDismiss: () -> Unit,
-    onSave: (username: String, newPassword: String?) -> Unit
+    onSave: (username: String, newPassword: String?, avatarKey: String?) -> Unit
 ) {
     var username by remember(initialUsername) { mutableStateOf(initialUsername) }
+    var avatarKey by remember(initialAvatarKey) { mutableStateOf(initialAvatarKey) }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
@@ -69,6 +81,47 @@ fun EditProfileDialog(
                     enabled = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Text(
+                    text = "Profile photo",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AvatarPresetChip(
+                        label = "None",
+                        selected = avatarKey == null,
+                        isSaving = isSaving,
+                        onClick = { avatarKey = null }
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                        )
+                    }
+                    avatarPresets.forEach { preset ->
+                        AvatarPresetChip(
+                            label = preset.label,
+                            selected = avatarKey == preset.key,
+                            isSaving = isSaving,
+                            onClick = { avatarKey = preset.key }
+                        ) {
+                            Image(
+                                painter = painterResource(id = preset.drawableRes),
+                                contentDescription = preset.label,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                            )
+                        }
+                    }
+                }
                 Text(
                     text = "Change password (optional)",
                     style = MaterialTheme.typography.labelLarge,
@@ -124,7 +177,7 @@ fun EditProfileDialog(
                         return@Button
                     }
                     localError = null
-                    onSave(u, pwd.ifEmpty { null })
+                    onSave(u, pwd.ifEmpty { null }, avatarKey)
                 },
                 enabled = !isSaving && username.isNotBlank()
             ) {
@@ -137,4 +190,39 @@ fun EditProfileDialog(
             }
         }
     )
+}
+
+@Composable
+private fun AvatarPresetChip(
+    label: String,
+    selected: Boolean,
+    isSaving: Boolean,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val borderColor = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.outline
+    }
+
+    Column(
+        modifier = Modifier
+            .clickable(enabled = !isSaving, onClick = onClick),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(CircleShape)
+                .border(2.dp, borderColor, CircleShape)
+                .padding(3.dp)
+        ) {
+            content()
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }

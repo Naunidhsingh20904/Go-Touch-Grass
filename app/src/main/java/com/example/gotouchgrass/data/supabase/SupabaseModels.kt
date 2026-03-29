@@ -12,7 +12,7 @@ data class UserRow(
     @SerialName("display_name") val displayName: String,
     val username: String,
     val email: String,
-    @SerialName("avatar_url") val avatarUrl: Int? = null,
+    @SerialName("avatar_url") val avatarUrl: String? = null,
     val level: Long,
     @SerialName("xp_total") val xpTotal: Long
 )

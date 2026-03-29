@@ -18,6 +18,7 @@ import com.example.gotouchgrass.domain.StreakData
 import com.example.gotouchgrass.domain.User
 import com.example.gotouchgrass.domain.UserPreferences
 import com.example.gotouchgrass.domain.WeeklySummary
+import com.example.gotouchgrass.domain.isValidAvatarPresetKey
 import com.example.gotouchgrass.domain.rarityScoreForLandmarkCategoryName
 import org.json.JSONObject
 import java.time.DayOfWeek
@@ -35,6 +36,13 @@ open class GoTouchGrassRepository(
 
     // User
     suspend fun getUser(userId: String): Result<User?> = dataSource.getUserById(userId)
+
+    suspend fun updateUserProfile(userId: String, username: String, avatarKey: String?): Result<Unit> = runCatching {
+        val trimmedUsername = username.trim()
+        require(trimmedUsername.isNotEmpty()) { "Username cannot be empty" }
+        require(isValidAvatarPresetKey(avatarKey)) { "Invalid avatar preset" }
+        dataSource.updateUserProfileByAuthId(userId, trimmedUsername, avatarKey)
+    }
 
     // Explore page
 

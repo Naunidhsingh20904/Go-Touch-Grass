@@ -38,12 +38,29 @@ open class SupabaseDataSource(
             displayName = displayName,
             username = username,
             email = email,
-            avatarUrl = avatarUrl?.toString(),
+            avatarUrl = avatarUrl,
             createdAtIso = createdAt,
             homeCityId = null,
             level = level.toInt(),
             xpTotal = xpTotal.toInt()
         )
+    }
+
+    suspend fun updateUserProfileByAuthId(authUserId: String, username: String, avatarKey: String?) {
+        supabaseClient.from(TABLE_USERS).update(
+            update = {
+                this["username"] = username
+                if (avatarKey == null) {
+                    setToNull("avatar_url")
+                } else {
+                    this["avatar_url"] = avatarKey
+                }
+            }
+        ) {
+            filter {
+                eq("auth_user_id", authUserId)
+            }
+        }
     }
 
     suspend fun getUserRowByAuthId(authUserId: String): UserRow? =
