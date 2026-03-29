@@ -27,6 +27,9 @@ class ProfileViewModel(
     var username by mutableStateOf("")
         private set
 
+    var avatarKey by mutableStateOf<String?>(null)
+        private set
+
     var joinedText by mutableStateOf("")
         private set
 
@@ -100,10 +103,15 @@ class ProfileViewModel(
         }
     }
 
+    suspend fun updateProfile(username: String, avatarKey: String?): Result<Unit> {
+        return model.updateProfile(username, avatarKey)
+    }
+
     private fun applyUser(user: User?) {
         if (user == null) return
 
         username = user.username
+        avatarKey = user.avatarUrl
         level = user.level
         maxXp = XP_PER_LEVEL
 

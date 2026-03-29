@@ -99,19 +99,6 @@ class AuthService(
         supabaseClient.auth.signOut()
     }
 
-    suspend fun updateUsernameForAuthUser(
-        authUserId: String,
-        newUsername: String
-    ): Result<Unit> = runCatching {
-        val trimmed = newUsername.trim()
-        require(trimmed.isNotEmpty()) { "Username cannot be empty" }
-        supabaseClient.from(TABLE_USERS).update(UserUsernameUpdate(username = trimmed)) {
-            filter {
-                eq("auth_user_id", authUserId)
-            }
-        }
-    }
-
     suspend fun updatePassword(newPassword: String): Result<Unit> = runCatching {
         require(newPassword.length >= 6) { "Password must be at least 6 characters" }
         supabaseClient.auth.updateUser {
@@ -167,11 +154,6 @@ class AuthService(
     }
 }
 
-
-@Serializable
-private data class UserUsernameUpdate(
-    val username: String
-)
 
 @Serializable
 private data class UserProfileInsert(

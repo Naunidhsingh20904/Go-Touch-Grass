@@ -15,6 +15,9 @@ class ProfileModel(
 
     suspend fun getUser(): User? = repository.getUser(currentUserId).getOrNull()
 
+    suspend fun updateProfile(username: String, avatarKey: String?): Result<Unit> =
+        repository.updateProfile(currentUserId, username, avatarKey)
+
     suspend fun getLifetimeStats(): LifetimeStats? =
         repository.getLifetimeStats(currentUserId).getOrNull()
 

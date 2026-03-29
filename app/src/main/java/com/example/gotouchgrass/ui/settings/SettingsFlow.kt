@@ -42,7 +42,6 @@ fun SettingsFlow(
     viewModel: SettingsViewModel,
     authService: AuthService,
     profileViewModel: ProfileViewModel?,
-    currentUserId: String,
     onBackClick: () -> Unit,
     onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -184,6 +183,7 @@ fun SettingsFlow(
     if (showEditProfile) {
         EditProfileDialog(
             initialUsername = profileViewModel?.username.orEmpty(),
+            initialAvatarKey = profileViewModel?.avatarKey,
             email = editEmail,
             isSaving = editSaving,
             errorMessage = editError,
@@ -193,13 +193,20 @@ fun SettingsFlow(
                     editError = null
                 }
             },
-            onSave = { username, newPassword ->
+            onSave = { username, newPassword, avatarKey ->
                 editSaving = true
                 editError = null
                 scope.launch {
-                    authService.updateUsernameForAuthUser(currentUserId, username)
+                    val profileUpdater = profileViewModel
+                    if (profileUpdater == null) {
+                        editError = "Could not update profile"
+                        editSaving = false
+                        return@launch
+                    }
+
+                    profileUpdater.updateProfile(username, avatarKey)
                         .onFailure {
-                            editError = it.message ?: "Could not update username"
+                            editError = it.message ?: "Could not update profile"
                             editSaving = false
                             return@launch
                         }

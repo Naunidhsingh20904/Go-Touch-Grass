@@ -2,6 +2,7 @@ package com.example.gotouchgrass.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,10 +42,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.gotouchgrass.domain.avatarDrawableResForKey
 import com.example.gotouchgrass.ui.theme.*
 
 @Composable
@@ -69,6 +72,7 @@ fun ProfileScreen(
         // Profile Overview Card
         ProfileOverviewCard(
             username = viewModel.username,
+            avatarKey = viewModel.avatarKey,
             joinedText = viewModel.joinedText,
             streakDays = viewModel.streakDays,
             level = viewModel.level,
@@ -133,6 +137,7 @@ private fun ProfileHeader(onSettingsClick: () -> Unit) {
 @Composable
 private fun ProfileOverviewCard(
     username: String,
+    avatarKey: String?,
     joinedText: String,
     streakDays: Int,
     level: Int,
@@ -152,21 +157,31 @@ private fun ProfileOverviewCard(
             ) {
                 // Avatar with level badge
                 Box {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(RoundedCornerShape(GoTouchGrassDimens.RadiusMedium))
-                            .background(ForestGreen),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = username.first().uppercase(),
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = WarmWhite,
-                            fontWeight = FontWeight.Bold
+                    val avatarRes = avatarDrawableResForKey(avatarKey)
+                    if (avatarRes != null) {
+                        Image(
+                            painter = painterResource(id = avatarRes),
+                            contentDescription = "Profile photo",
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(CircleShape)
                         )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(GoTouchGrassDimens.RadiusMedium))
+                                .background(ForestGreen),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = username.firstOrNull()?.uppercase() ?: "?",
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = WarmWhite,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
-
                     // Level badge
                     Box(
                         modifier = Modifier
