@@ -28,7 +28,6 @@ import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 import com.example.gotouchgrass.R
 import com.example.gotouchgrass.ui.theme.ForestGreen
-import com.example.gotouchgrass.ui.theme.SandLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -186,7 +185,7 @@ fun SearchScreen(
                                 Surface(
                                     onClick = { viewModel.onRecentSearchSelected(search) },
                                     shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
-                                    color = SandLight
+                                    color = MaterialTheme.colorScheme.secondaryContainer
                                 ) {
                                     Text(
                                         text = search,
@@ -197,7 +196,7 @@ fun SearchScreen(
                                                 vertical = GoTouchGrassDimens.SpacingXs
                                             ),
                                         style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
