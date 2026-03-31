@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
@@ -44,6 +45,8 @@ import com.example.gotouchgrass.domain.ProfileModel
 import com.example.gotouchgrass.location.AppLocationTracker
 import com.example.gotouchgrass.ui.explore.ExploreScreen
 import com.example.gotouchgrass.ui.explore.ExploreViewModel
+import com.example.gotouchgrass.ui.friends.FriendsScreen
+import com.example.gotouchgrass.ui.friends.FriendsViewModel
 import com.example.gotouchgrass.ui.map.MapScreen
 import com.example.gotouchgrass.ui.map.MapViewModel
 import com.example.gotouchgrass.ui.screens.AuthScreen
@@ -160,6 +163,9 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                 userId = currentUserId, repository = repository, appPreferencesStore = appPrefs
             )
         }
+        val friendsViewModel = remember(currentUserId) {
+            currentUserId?.let { FriendsViewModel(repository = repository, currentAuthUserId = it) }
+        }
         var placesClient by remember { mutableStateOf<PlacesClient?>(null) }
 
         LaunchedEffect(settingsViewModel.preferences.locationServicesEnabled) {
@@ -202,9 +208,9 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                         authError = error.message
                     }
                 }
-            }, onSignUp = { username, email, password ->
+            }, onSignUp = { username, displayName, email, password ->
                 coroutineScope.launch {
-                    authService.signUp(email, password, username).onSuccess { user ->
+                    authService.signUp(email, password, username, displayName).onSuccess { user ->
                         authError = null
                         currentUserId = user.id
                         isAuthenticated = true
@@ -282,6 +288,14 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                                 }
 
                                 AppDestinations.STATS -> StatsScreen(viewModel = statsViewModel)
+                                AppDestinations.FRIENDS -> {
+                                    if (friendsViewModel != null) {
+                                        FriendsScreen(viewModel = friendsViewModel)
+                                    } else {
+                                        Text("Loading friends...")
+                                    }
+                                }
+
                                 AppDestinations.PROFILE -> {
                                     if (profileViewModel != null) {
                                         ProfileScreen(
@@ -320,5 +334,5 @@ enum class AppDestinations(
     MAP("Map", Icons.Default.Home), EXPLORE("Explore", Icons.Default.LocationOn), SEARCH(
         "Search", Icons.Default.Search
     ),
-    STATS("Stats", Icons.Default.Share), PROFILE("Profile", Icons.Default.Face)
+    FRIENDS("Friends", Icons.Default.People), STATS("Stats", Icons.Default.Share), PROFILE("Profile", Icons.Default.Face)
 }
