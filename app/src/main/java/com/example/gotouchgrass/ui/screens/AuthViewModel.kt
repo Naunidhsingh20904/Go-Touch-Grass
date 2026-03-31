@@ -26,6 +26,9 @@ class AuthViewModel : ViewModel() {
     private val _username = MutableStateFlow("")
     val username: StateFlow<String> = _username.asStateFlow()
 
+    private val _displayName = MutableStateFlow("")
+    val displayName: StateFlow<String> = _displayName.asStateFlow()
+
     private val _password = MutableStateFlow("")
     val password: StateFlow<String> = _password.asStateFlow()
 
@@ -42,6 +45,11 @@ class AuthViewModel : ViewModel() {
 
     fun setUsername(value: String) {
         _username.update { value }
+        _errorMessage.update { null }
+    }
+
+    fun setDisplayName(value: String) {
+        _displayName.update { value }
         _errorMessage.update { null }
     }
 
@@ -76,9 +84,24 @@ class AuthViewModel : ViewModel() {
      */
     fun signUp(): AuthResult {
         val u = _username.value
+        val d = _displayName.value
         val e = _email.value
         val p = _password.value
         if (u.isBlank()) return AuthResult.Error("Choose a username").also { setError(it) }
+        if (d.isBlank()) return AuthResult.Error("Enter a display name").also { setError(it) }
+        if (d.trim().length < 2) {
+            return AuthResult.Error("Display name must be at least 2 characters").also { setError(it) }
+        }
+        if (d.trim().length > 30) {
+            return AuthResult.Error("Display name must be 30 characters or fewer").also { setError(it) }
+        }
+        val normalized = u.trim().lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
+        if (normalized.length < 3) {
+            return AuthResult.Error("Username must be at least 3 valid characters").also { setError(it) }
+        }
+        if (normalized.length > 20) {
+            return AuthResult.Error("Username must be 20 characters or fewer").also { setError(it) }
+        }
         if (e.isBlank()) return AuthResult.Error("Enter your email").also { setError(it) }
         if (p.isBlank()) return AuthResult.Error("Enter a password").also { setError(it) }
         if (p.length < 4) return AuthResult.Error("Password must be at least 4 characters").also { setError(it) }

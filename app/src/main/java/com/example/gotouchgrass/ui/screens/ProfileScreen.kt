@@ -71,6 +71,7 @@ fun ProfileScreen(
 
         // Profile Overview Card
         ProfileOverviewCard(
+            displayName = viewModel.displayName,
             username = viewModel.username,
             avatarKey = viewModel.avatarKey,
             joinedText = viewModel.joinedText,
@@ -136,6 +137,7 @@ private fun ProfileHeader(onSettingsClick: () -> Unit) {
 
 @Composable
 private fun ProfileOverviewCard(
+    displayName: String,
     username: String,
     avatarKey: String?,
     joinedText: String,
@@ -206,11 +208,17 @@ private fun ProfileOverviewCard(
                 // User info
                 Column {
                     Text(
-                        text = username,
+                        text = if (displayName.isBlank()) username else displayName,
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold
                         ),
                         color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Text(
+                        text = "@$username",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Text(

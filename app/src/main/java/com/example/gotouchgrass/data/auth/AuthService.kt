@@ -18,8 +18,19 @@ class AuthService(
     suspend fun signUp(
         email: String,
         password: String,
+        username: String,
         displayName: String
     ): Result<AuthUser> = runCatching {
+        val normalizedUsername = normalizeUsername(username)
+        val normalizedDisplayName = normalizeDisplayName(displayName)
+        require(normalizedUsername.isNotBlank()) { "Username cannot be empty" }
+        require(normalizedDisplayName.isNotBlank()) { "Display name cannot be empty" }
+
+        val usernameAvailable = isUsernameAvailable(normalizedUsername).getOrElse { true }
+        if (!usernameAvailable) {
+            throw Exception("Username is already taken")
+        }
+
         // Attempt sign-up first.
         val signUpResult = runCatching {
             supabaseClient.auth.signUpWith(Email) {
@@ -49,8 +60,13 @@ class AuthService(
         ensureUserProfile(
             authUserId = authUser.id,
             email = authUser.email ?: email,
-            displayName = displayName
+            username = normalizedUsername,
+            displayName = normalizedDisplayName
         ).getOrElse { error ->
+            val message = error.message?.lowercase().orEmpty()
+            if (message.contains("duplicate") || message.contains("unique") || message.contains("username")) {
+                throw Exception("Username is already taken", error)
+            }
             throw Exception(
                 "Auth account created, but profile row insert failed. Check RLS policy for public.\"user\" and unique constraints. Details: ${error.message}",
                 error
@@ -60,8 +76,22 @@ class AuthService(
         AuthUser(
             id = authUser.id,
             email = authUser.email ?: email,
-            displayName = displayName
+            displayName = normalizedDisplayName
         )
+    }
+
+    suspend fun isUsernameAvailable(username: String): Result<Boolean> = runCatching {
+        val normalizedUsername = normalizeUsername(username)
+        if (normalizedUsername.isBlank()) return@runCatching false
+
+        val rows = supabaseClient.from(TABLE_USERS).select {
+            filter {
+                eq("username", normalizedUsername)
+            }
+            limit(1)
+        }.decodeList<UsernameLookupRow>()
+
+        rows.isEmpty()
     }
 
     suspend fun signIn(
@@ -74,7 +104,16 @@ class AuthService(
         ensureUserProfile(
             authUserId = authUser.id,
             email = authUser.email ?: email,
-            displayName = authUser.userMetadata?.get("display_name") as? String ?: "User"
+            username = normalizeUsername(
+                authUser.userMetadata?.get("display_name") as? String
+                    ?: authUser.email?.substringBefore("@")
+                    ?: "user"
+            ),
+            displayName = normalizeDisplayName(
+                authUser.userMetadata?.get("display_name") as? String
+                    ?: authUser.email?.substringBefore("@")
+                    ?: "User"
+            )
         )
 
         AuthUser(
@@ -118,9 +157,9 @@ class AuthService(
     private suspend fun ensureUserProfile(
         authUserId: String,
         email: String,
+        username: String,
         displayName: String
     ): Result<Unit> {
-        val username = buildUsername(displayName, email, authUserId)
         return runCatching {
             supabaseClient.from(TABLE_USERS).insert(
                 UserProfileInsert(
@@ -135,22 +174,17 @@ class AuthService(
         }
     }
 
-    private fun buildUsername(displayName: String, email: String, authUserId: String): String {
-        val base = displayName
+    private fun normalizeUsername(username: String): String {
+        return username
             .trim()
             .lowercase()
             .replace(Regex("[^a-z0-9]+"), "_")
             .trim('_')
+            .take(20)
+    }
 
-        val fallback = email.substringBefore("@").lowercase()
-        val prefix = (if (base.isNotBlank()) base else fallback)
-            .replace(Regex("[^a-z0-9_]+"), "_")
-            .trim('_')
-            .ifBlank { "user" }
-            .take(16)
-
-        val suffix = authUserId.replace("-", "").takeLast(6).lowercase()
-        return "${prefix}_$suffix"
+    private fun normalizeDisplayName(displayName: String): String {
+        return displayName.trim().take(30)
     }
 }
 
@@ -163,6 +197,11 @@ private data class UserProfileInsert(
     val email: String,
     val level: Int,
     @SerialName("xp_total") val xpTotal: Int
+)
+
+@Serializable
+private data class UsernameLookupRow(
+    val id: Long
 )
 
 

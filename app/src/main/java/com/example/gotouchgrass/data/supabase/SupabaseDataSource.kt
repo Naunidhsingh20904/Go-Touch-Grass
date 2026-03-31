@@ -46,10 +46,16 @@ open class SupabaseDataSource(
         )
     }
 
-    suspend fun updateUserProfileByAuthId(authUserId: String, username: String, avatarKey: String?) {
+    suspend fun updateUserProfileByAuthId(
+        authUserId: String,
+        username: String,
+        displayName: String,
+        avatarKey: String?
+    ) {
         supabaseClient.from(TABLE_USERS).update(
             update = {
                 this["username"] = username
+                this["display_name"] = displayName
                 if (avatarKey == null) {
                     setToNull("avatar_url")
                 } else {

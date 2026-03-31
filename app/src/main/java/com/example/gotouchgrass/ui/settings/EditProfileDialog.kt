@@ -40,14 +40,16 @@ import com.example.gotouchgrass.domain.avatarPresets
 @Composable
 fun EditProfileDialog(
     initialUsername: String,
+    initialDisplayName: String,
     initialAvatarKey: String?,
     email: String,
     isSaving: Boolean,
     errorMessage: String?,
     onDismiss: () -> Unit,
-    onSave: (username: String, newPassword: String?, avatarKey: String?) -> Unit
+    onSave: (username: String, displayName: String, newPassword: String?, avatarKey: String?) -> Unit
 ) {
     var username by remember(initialUsername) { mutableStateOf(initialUsername) }
+    var displayName by remember(initialDisplayName) { mutableStateOf(initialDisplayName) }
     var avatarKey by remember(initialAvatarKey) { mutableStateOf(initialAvatarKey) }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -69,6 +71,14 @@ fun EditProfileDialog(
                     value = username,
                     onValueChange = { username = it },
                     label = { Text("Username") },
+                    singleLine = true,
+                    enabled = !isSaving,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = displayName,
+                    onValueChange = { displayName = it },
+                    label = { Text("Display name") },
                     singleLine = true,
                     enabled = !isSaving,
                     modifier = Modifier.fillMaxWidth()
@@ -169,17 +179,22 @@ fun EditProfileDialog(
             Button(
                 onClick = {
                     val u = username.trim()
+                    val d = displayName.trim()
                     val pwd = newPassword.trim()
                     val confirm = confirmPassword.trim()
                     if (u.isBlank()) return@Button
+                    if (d.isBlank()) {
+                        localError = "Display name cannot be empty"
+                        return@Button
+                    }
                     if (pwd.isNotEmpty() && pwd != confirm) {
                         localError = "Passwords do not match"
                         return@Button
                     }
                     localError = null
-                    onSave(u, pwd.ifEmpty { null }, avatarKey)
+                    onSave(u, d, pwd.ifEmpty { null }, avatarKey)
                 },
-                enabled = !isSaving && username.isNotBlank()
+                enabled = !isSaving && username.isNotBlank() && displayName.isNotBlank()
             ) {
                 Text("Save")
             }

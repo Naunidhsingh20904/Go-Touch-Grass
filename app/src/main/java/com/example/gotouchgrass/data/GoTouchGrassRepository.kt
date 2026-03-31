@@ -37,11 +37,18 @@ open class GoTouchGrassRepository(
     // User
     suspend fun getUser(userId: String): Result<User?> = dataSource.getUserById(userId)
 
-    suspend fun updateUserProfile(userId: String, username: String, avatarKey: String?): Result<Unit> = runCatching {
+    suspend fun updateUserProfile(
+        userId: String,
+        username: String,
+        displayName: String,
+        avatarKey: String?
+    ): Result<Unit> = runCatching {
         val trimmedUsername = username.trim()
+        val trimmedDisplayName = displayName.trim()
         require(trimmedUsername.isNotEmpty()) { "Username cannot be empty" }
+        require(trimmedDisplayName.isNotEmpty()) { "Display name cannot be empty" }
         require(isValidAvatarPresetKey(avatarKey)) { "Invalid avatar preset" }
-        dataSource.updateUserProfileByAuthId(userId, trimmedUsername, avatarKey)
+        dataSource.updateUserProfileByAuthId(userId, trimmedUsername, trimmedDisplayName, avatarKey)
     }
 
     // Explore page

@@ -24,6 +24,9 @@ class ProfileViewModel(
     private val model: ProfileModel
 ) : ViewModel() {
 
+    var displayName by mutableStateOf("")
+        private set
+
     var username by mutableStateOf("")
         private set
 
@@ -103,14 +106,15 @@ class ProfileViewModel(
         }
     }
 
-    suspend fun updateProfile(username: String, avatarKey: String?): Result<Unit> {
-        return model.updateProfile(username, avatarKey)
+    suspend fun updateProfile(username: String, displayName: String, avatarKey: String?): Result<Unit> {
+        return model.updateProfile(username, displayName, avatarKey)
     }
 
     private fun applyUser(user: User?) {
         if (user == null) return
 
         username = user.username
+        displayName = user.displayName
         avatarKey = user.avatarUrl
         level = user.level
         maxXp = XP_PER_LEVEL

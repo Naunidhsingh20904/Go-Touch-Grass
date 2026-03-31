@@ -183,6 +183,7 @@ fun SettingsFlow(
     if (showEditProfile) {
         EditProfileDialog(
             initialUsername = profileViewModel?.username.orEmpty(),
+            initialDisplayName = profileViewModel?.displayName.orEmpty(),
             initialAvatarKey = profileViewModel?.avatarKey,
             email = editEmail,
             isSaving = editSaving,
@@ -193,7 +194,7 @@ fun SettingsFlow(
                     editError = null
                 }
             },
-            onSave = { username, newPassword, avatarKey ->
+            onSave = { username, displayName, newPassword, avatarKey ->
                 editSaving = true
                 editError = null
                 scope.launch {
@@ -204,7 +205,7 @@ fun SettingsFlow(
                         return@launch
                     }
 
-                    profileUpdater.updateProfile(username, avatarKey)
+                    profileUpdater.updateProfile(username, displayName, avatarKey)
                         .onFailure {
                             editError = it.message ?: "Could not update profile"
                             editSaving = false
