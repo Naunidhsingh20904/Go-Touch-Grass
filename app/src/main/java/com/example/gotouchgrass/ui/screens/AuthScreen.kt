@@ -38,11 +38,12 @@ import com.example.gotouchgrass.ui.theme.*
 fun AuthScreen(
     viewModel: AuthViewModel = viewModel(),
     onSignIn: (email: String, password: String) -> Unit = { _, _ -> },
-    onSignUp: (username: String, email: String, password: String) -> Unit = { _, _, _ -> },
+    onSignUp: (username: String, displayName: String, email: String, password: String) -> Unit = { _, _, _, _ -> },
     onForgotPassword: () -> Unit = {}
 ) {
     val isSignIn by viewModel.isSignInTab.collectAsState()
     val username by viewModel.username.collectAsState()
+    val displayName by viewModel.displayName.collectAsState()
     val email by viewModel.email.collectAsState()
     val password by viewModel.password.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
@@ -69,6 +70,8 @@ fun AuthScreen(
                 onTabChange = viewModel::setSignInTab,
                 username = username,
                 onUsernameChange = viewModel::setUsername,
+                displayName = displayName,
+                onDisplayNameChange = viewModel::setDisplayName,
                 email = email,
                 onEmailChange = viewModel::setEmail,
                 password = password,
@@ -81,7 +84,7 @@ fun AuthScreen(
                         }
                     } else {
                         when (val result = viewModel.signUp()) {
-                            is AuthResult.Success -> onSignUp(username, email, password)
+                            is AuthResult.Success -> onSignUp(username, displayName, email, password)
                             is AuthResult.Error -> { /* error shown via viewModel.errorMessage */ }
                         }
                     }
@@ -214,6 +217,8 @@ private fun FormCard(
     onTabChange: (Boolean) -> Unit,
     username: String,
     onUsernameChange: (String) -> Unit,
+    displayName: String,
+    onDisplayNameChange: (String) -> Unit,
     email: String,
     onEmailChange: (String) -> Unit,
     password: String,
@@ -248,10 +253,19 @@ private fun FormCard(
             // Form Fields
             if (!isSignIn) {
                 AuthTextField(
+                    label = "Display Name",
+                    value = displayName,
+                    onValueChange = onDisplayNameChange,
+                    placeholder = "How friends will see you",
+                    icon = Icons.Default.Person
+                )
+                Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingMd))
+
+                AuthTextField(
                     label = "Username",
                     value = username,
                     onValueChange = onUsernameChange,
-                    placeholder = "Choose a username",
+                    placeholder = "Choose a unique username",
                     icon = Icons.Default.Person
                 )
                 Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingMd))

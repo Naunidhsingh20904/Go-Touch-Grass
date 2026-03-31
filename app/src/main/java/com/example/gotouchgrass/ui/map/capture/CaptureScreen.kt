@@ -56,7 +56,7 @@ fun CaptureScreen(
     onCaptured: (String) -> Unit = {},
     viewModel: CaptureViewModel = remember(placeId, placeName, categoryName) {
         CaptureViewModel(
-            placeId = placeId, seededPlaceName = placeName, seededCategoryName = categoryName
+            seededPlaceName = placeName, seededCategoryName = categoryName
         )
     }
 ) {

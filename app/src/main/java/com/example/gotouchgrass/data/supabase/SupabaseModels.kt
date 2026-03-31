@@ -184,3 +184,25 @@ data class CaptureInsert(
     @SerialName("rarity_at_time") val rarityAtTime: Double,
     @SerialName("xp_awarded") val xpAwarded: Int
 )
+
+@Serializable
+data class FriendRequestRow(
+    val id: Long,
+    @SerialName("requester_id") val requesterId: Long,
+    @SerialName("recipient_id") val recipientId: Long,
+    @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class FriendRequestInsert(
+    @SerialName("requester_id") val requesterId: Long,
+    @SerialName("recipient_id") val recipientId: Long
+)
+
+@Serializable
+data class FriendshipRow(
+    val id: Long,
+    @SerialName("user_id_a") val userIdA: Long,
+    @SerialName("user_id_b") val userIdB: Long,
+    @SerialName("created_at") val createdAt: String
+)

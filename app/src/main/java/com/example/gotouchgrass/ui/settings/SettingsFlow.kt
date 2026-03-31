@@ -113,6 +113,7 @@ fun SettingsFlow(
                         viewModel.preferences.copy(notificationsEnabled = true)
                     )
                 }
+
                 else -> {
                     pendingNotificationEnable = true
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -156,6 +157,7 @@ fun SettingsFlow(
             showPrivacy -> {
                 PrivacyPermissionsScreen(onBackClick = { showPrivacy = false })
             }
+
             else -> {
                 SettingsScreen(
                     viewModel = viewModel,
@@ -183,6 +185,7 @@ fun SettingsFlow(
     if (showEditProfile) {
         EditProfileDialog(
             initialUsername = profileViewModel?.username.orEmpty(),
+            initialDisplayName = profileViewModel?.displayName.orEmpty(),
             initialAvatarKey = profileViewModel?.avatarKey,
             email = editEmail,
             isSaving = editSaving,
@@ -190,21 +193,16 @@ fun SettingsFlow(
             onDismiss = {
                 if (!editSaving) {
                     showEditProfile = false
-                    editError = null
                 }
             },
-            onSave = { username, newPassword, avatarKey ->
-                editSaving = true
-                editError = null
+            onSave = { username, displayName, newPassword, avatarKey ->
                 scope.launch {
                     val profileUpdater = profileViewModel
                     if (profileUpdater == null) {
-                        editError = "Could not update profile"
-                        editSaving = false
                         return@launch
                     }
 
-                    profileUpdater.updateProfile(username, avatarKey)
+                    profileUpdater.updateProfile(username, displayName, avatarKey)
                         .onFailure {
                             editError = it.message ?: "Could not update profile"
                             editSaving = false

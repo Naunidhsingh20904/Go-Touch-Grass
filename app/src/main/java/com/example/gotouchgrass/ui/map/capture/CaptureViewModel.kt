@@ -28,7 +28,6 @@ private fun parseCategoryOrOther(categoryName: String?): LandmarkCategory {
 }
 
 class CaptureViewModel(
-    private val placeId: String,
     private val seededPlaceName: String? = null,
     private val seededCategoryName: String? = null
 ) : ViewModel() {

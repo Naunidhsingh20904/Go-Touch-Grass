@@ -13,7 +13,12 @@ import com.example.gotouchgrass.domain.WeeklySummary
  */
 interface ProfileRepository {
     suspend fun getUser(userId: String): Result<User?>
-    suspend fun updateProfile(userId: String, username: String, avatarKey: String?): Result<Unit>
+    suspend fun updateProfile(
+        userId: String,
+        username: String,
+        displayName: String,
+        avatarKey: String?
+    ): Result<Unit>
     suspend fun getLifetimeStats(userId: String): Result<LifetimeStats>
     suspend fun getStreakData(userId: String): Result<StreakData>
     suspend fun getWeeklySummary(userId: String): Result<WeeklySummary>
@@ -31,8 +36,9 @@ class SupabaseProfileRepository(
     override suspend fun updateProfile(
         userId: String,
         username: String,
+        displayName: String,
         avatarKey: String?
-    ): Result<Unit> = repository.updateUserProfile(userId, username, avatarKey)
+    ): Result<Unit> = repository.updateUserProfile(userId, username, displayName, avatarKey)
 
     override suspend fun getLifetimeStats(userId: String): Result<LifetimeStats> =
         repository.getLifetimeStats(userId)
@@ -57,6 +63,7 @@ class FakeProfileRepository : ProfileRepository {
     override suspend fun updateProfile(
         userId: String,
         username: String,
+        displayName: String,
         avatarKey: String?
     ): Result<Unit> = runCatching {
         // testing

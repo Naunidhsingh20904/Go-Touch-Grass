@@ -1,6 +1,7 @@
 package com.example.gotouchgrass.ui.screens
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -24,6 +25,9 @@ class ProfileViewModel(
     private val model: ProfileModel
 ) : ViewModel() {
 
+    var displayName by mutableStateOf("")
+        private set
+
     var username by mutableStateOf("")
         private set
 
@@ -33,16 +37,16 @@ class ProfileViewModel(
     var joinedText by mutableStateOf("")
         private set
 
-    var streakDays by mutableStateOf(0)
+    var streakDays by mutableIntStateOf(0)
         private set
 
     var level by mutableStateOf(1)
         private set
 
-    var currentXp by mutableStateOf(0)
+    var currentXp by mutableIntStateOf(0)
         private set
 
-    var maxXp by mutableStateOf(XP_PER_LEVEL)
+    var maxXp by mutableIntStateOf(XP_PER_LEVEL)
         private set
 
     var zonesVisited by mutableStateOf("0")
@@ -103,14 +107,19 @@ class ProfileViewModel(
         }
     }
 
-    suspend fun updateProfile(username: String, avatarKey: String?): Result<Unit> {
-        return model.updateProfile(username, avatarKey)
+    suspend fun updateProfile(
+        username: String,
+        displayName: String,
+        avatarKey: String?
+    ): Result<Unit> {
+        return model.updateProfile(username, displayName, avatarKey)
     }
 
     private fun applyUser(user: User?) {
         if (user == null) return
 
         username = user.username
+        displayName = user.displayName
         avatarKey = user.avatarUrl
         level = user.level
         maxXp = XP_PER_LEVEL

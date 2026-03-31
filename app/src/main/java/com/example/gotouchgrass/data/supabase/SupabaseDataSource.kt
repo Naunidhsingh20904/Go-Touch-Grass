@@ -3,7 +3,9 @@ package com.example.gotouchgrass.data.supabase
 import com.example.gotouchgrass.domain.User
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
+import io.github.jan.supabase.postgrest.rpc
 
 open class SupabaseDataSource(
     private val supabaseClient: SupabaseClient
@@ -24,6 +26,8 @@ open class SupabaseDataSource(
         const val TABLE_STREAKS = "streak"
         const val TABLE_VISIT_SESSIONS = "visit_session"
         const val TABLE_CAPTURES = "capture"
+        const val TABLE_FRIEND_REQUESTS = "friend_request"
+        const val TABLE_FRIENDSHIPS = "friendship"
     }
 
     suspend fun getUserById(userId: String): Result<User?> = runCatching {
@@ -46,10 +50,16 @@ open class SupabaseDataSource(
         )
     }
 
-    suspend fun updateUserProfileByAuthId(authUserId: String, username: String, avatarKey: String?) {
+    suspend fun updateUserProfileByAuthId(
+        authUserId: String,
+        username: String,
+        displayName: String,
+        avatarKey: String?
+    ) {
         supabaseClient.from(TABLE_USERS).update(
             update = {
                 this["username"] = username
+                this["display_name"] = displayName
                 if (avatarKey == null) {
                     setToNull("avatar_url")
                 } else {
@@ -199,4 +209,128 @@ open class SupabaseDataSource(
             gte("started_at", weekStartIso)
         }
     }.decodeList()
+
+    // friendship management
+
+    suspend fun sendFriendRequest(requesterId: Long, recipientId: Long) {
+        supabaseClient.from(TABLE_FRIEND_REQUESTS).insert(
+            FriendRequestInsert(
+                requesterId = requesterId,
+                recipientId = recipientId
+            )
+        )
+    }
+
+    suspend fun getIncomingFriendRequests(userId: Long): List<FriendRequestRow> =
+        supabaseClient.from(TABLE_FRIEND_REQUESTS).select {
+            filter {
+                eq("recipient_id", userId)
+            }
+            order("created_at", Order.DESCENDING)
+        }.decodeList()
+
+    suspend fun getOutgoingFriendRequests(userId: Long): List<FriendRequestRow> =
+        supabaseClient.from(TABLE_FRIEND_REQUESTS).select {
+            filter {
+                eq("requester_id", userId)
+            }
+            order("created_at", Order.DESCENDING)
+        }.decodeList()
+
+    suspend fun declineFriendRequest(requestId: Long) {
+        supabaseClient.from(TABLE_FRIEND_REQUESTS).delete {
+            filter {
+                eq("id", requestId)
+            }
+        }
+    }
+
+    suspend fun cancelFriendRequest(requestId: Long) {
+        supabaseClient.from(TABLE_FRIEND_REQUESTS).delete {
+            filter {
+                eq("id", requestId)
+            }
+        }
+    }
+
+    suspend fun acceptFriendRequest(requestId: Long) {
+        supabaseClient.postgrest.rpc(
+            function = "accept_friend_request",
+            parameters = mapOf("p_request_id" to requestId)
+        )
+    }
+
+    suspend fun getUserFriends(userId: Long): List<Long> {
+        val friendships = supabaseClient.from(TABLE_FRIENDSHIPS).select {
+            filter {
+                eq("user_id_a", userId)
+            }
+        }.decodeList<FriendshipRow>()
+
+        val asFriends = friendships.map { it.userIdB }
+
+        val reverseFriendships = supabaseClient.from(TABLE_FRIENDSHIPS).select {
+            filter {
+                eq("user_id_b", userId)
+            }
+        }.decodeList<FriendshipRow>()
+
+        val bFriends = reverseFriendships.map { it.userIdA }
+
+        return (asFriends + bFriends).distinct()
+    }
+
+    suspend fun isFriend(userId: Long, friendId: Long): Boolean {
+        val userIdA = minOf(userId, friendId)
+        val userIdB = maxOf(userId, friendId)
+
+        return supabaseClient.from(TABLE_FRIENDSHIPS).select {
+            filter {
+                eq("user_id_a", userIdA)
+                eq("user_id_b", userIdB)
+            }
+            limit(1)
+        }.decodeList<FriendshipRow>().isNotEmpty()
+    }
+
+    suspend fun removeFriend(userId: Long, friendId: Long) {
+        val userIdA = minOf(userId, friendId)
+        val userIdB = maxOf(userId, friendId)
+
+        supabaseClient.from(TABLE_FRIENDSHIPS).delete {
+            filter {
+                eq("user_id_a", userIdA)
+                eq("user_id_b", userIdB)
+            }
+        }
+    }
+
+    suspend fun searchUsers(query: String, limit: Int = 20): List<UserRow> {
+        val safeLimit = limit.coerceAtLeast(1)
+        val trimmedQuery = query.trim()
+
+        val rpcResult = runCatching {
+            supabaseClient.postgrest.rpc(
+                function = "search_users_for_friends",
+                parameters = mapOf(
+                    "p_query" to trimmedQuery,
+                    "p_limit" to safeLimit
+                )
+            ).decodeList<UserRow>()
+        }
+
+        if (rpcResult.isSuccess) {
+            return rpcResult.getOrThrow()
+        }
+
+        return supabaseClient.from(TABLE_USERS).select {
+            filter {
+                or {
+                    ilike("username", "%$trimmedQuery%")
+                    ilike("display_name", "%$trimmedQuery%")
+                }
+            }
+            limit(safeLimit.toLong())
+        }.decodeList()
+    }
 }

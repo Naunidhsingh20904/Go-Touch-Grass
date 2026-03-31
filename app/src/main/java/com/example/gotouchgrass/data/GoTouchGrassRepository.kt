@@ -2,6 +2,7 @@ package com.example.gotouchgrass.data
 
 import com.example.gotouchgrass.data.supabase.ChallengeProgressRow
 import com.example.gotouchgrass.data.supabase.ChallengeRow
+import com.example.gotouchgrass.data.supabase.FriendRequestRow
 import com.example.gotouchgrass.data.supabase.RouteRow
 import com.example.gotouchgrass.data.supabase.SearchActivityInsert
 import com.example.gotouchgrass.data.supabase.SupabaseDataSource
@@ -37,11 +38,18 @@ open class GoTouchGrassRepository(
     // User
     suspend fun getUser(userId: String): Result<User?> = dataSource.getUserById(userId)
 
-    suspend fun updateUserProfile(userId: String, username: String, avatarKey: String?): Result<Unit> = runCatching {
+    suspend fun updateUserProfile(
+        userId: String,
+        username: String,
+        displayName: String,
+        avatarKey: String?
+    ): Result<Unit> = runCatching {
         val trimmedUsername = username.trim()
+        val trimmedDisplayName = displayName.trim()
         require(trimmedUsername.isNotEmpty()) { "Username cannot be empty" }
+        require(trimmedDisplayName.isNotEmpty()) { "Display name cannot be empty" }
         require(isValidAvatarPresetKey(avatarKey)) { "Invalid avatar preset" }
-        dataSource.updateUserProfileByAuthId(userId, trimmedUsername, avatarKey)
+        dataSource.updateUserProfileByAuthId(userId, trimmedUsername, trimmedDisplayName, avatarKey)
     }
 
     // Explore page
@@ -394,5 +402,162 @@ open class GoTouchGrassRepository(
         }
 
         entries
+    }
+
+    // friendship management
+
+    suspend fun sendFriendRequest(
+        authUserId: String,
+        recipientAuthUserId: String
+    ): Result<Unit> = runCatching {
+        val requesterUser = dataSource.getUserRowByAuthId(authUserId)
+            ?: throw Exception("Current user not found")
+        val recipientUser = dataSource.getUserRowByAuthId(recipientAuthUserId)
+            ?: throw Exception("Recipient user not found")
+        dataSource.sendFriendRequest(requesterUser.id, recipientUser.id)
+    }
+
+    suspend fun getIncomingFriendRequests(authUserId: String): Result<List<Pair<FriendRequestRow, User>>> =
+        runCatching {
+            val currentUser = dataSource.getUserRowByAuthId(authUserId)
+                ?: throw Exception("Current user not found")
+
+            val requests = dataSource.getIncomingFriendRequests(currentUser.id)
+            val requesterIds = requests.map { it.requesterId }
+            val requesters = if (requesterIds.isNotEmpty()) {
+                dataSource.fetchLeaderboardUsers(1000)
+                    .filter { it.id in requesterIds }
+            } else {
+                emptyList()
+            }
+
+            val requesterMap = requesters.associateBy { it.id }.mapValues { (_, userRow) ->
+                User(
+                    id = userRow.authUserId,
+                    displayName = userRow.displayName,
+                    username = userRow.username,
+                    email = userRow.email,
+                    avatarUrl = userRow.avatarUrl,
+                    createdAtIso = userRow.createdAt,
+                    homeCityId = null,
+                    level = userRow.level.toInt(),
+                    xpTotal = userRow.xpTotal.toInt()
+                )
+            }
+
+            requests.mapNotNull { request ->
+                val user = requesterMap[request.requesterId]
+                if (user != null) request to user else null
+            }
+        }
+
+    suspend fun getOutgoingFriendRequests(authUserId: String): Result<List<Pair<FriendRequestRow, User>>> =
+        runCatching {
+            val currentUser = dataSource.getUserRowByAuthId(authUserId)
+                ?: throw Exception("Current user not found")
+
+            val requests = dataSource.getOutgoingFriendRequests(currentUser.id)
+            val recipientIds = requests.map { it.recipientId }
+            val recipients = if (recipientIds.isNotEmpty()) {
+                dataSource.fetchLeaderboardUsers(1000)
+                    .filter { it.id in recipientIds }
+            } else {
+                emptyList()
+            }
+
+            val recipientMap = recipients.associateBy { it.id }.mapValues { (_, userRow) ->
+                User(
+                    id = userRow.authUserId,
+                    displayName = userRow.displayName,
+                    username = userRow.username,
+                    email = userRow.email,
+                    avatarUrl = userRow.avatarUrl,
+                    createdAtIso = userRow.createdAt,
+                    homeCityId = null,
+                    level = userRow.level.toInt(),
+                    xpTotal = userRow.xpTotal.toInt()
+                )
+            }
+
+            requests.mapNotNull { request ->
+                val user = recipientMap[request.recipientId]
+                if (user != null) request to user else null
+            }
+        }
+
+    suspend fun declineFriendRequest(requestId: Long): Result<Unit> = runCatching {
+        dataSource.declineFriendRequest(requestId)
+    }
+
+    suspend fun cancelFriendRequest(requestId: Long): Result<Unit> = runCatching {
+        dataSource.cancelFriendRequest(requestId)
+    }
+
+    suspend fun acceptFriendRequest(requestId: Long): Result<Unit> = runCatching {
+        dataSource.acceptFriendRequest(requestId)
+    }
+
+    suspend fun getFriends(authUserId: String): Result<List<User>> = runCatching {
+        val currentUser = dataSource.getUserRowByAuthId(authUserId)
+            ?: throw Exception("Current user not found")
+
+        val friendIds = dataSource.getUserFriends(currentUser.id)
+        if (friendIds.isEmpty()) return@runCatching emptyList()
+
+        val allUsers = dataSource.fetchLeaderboardUsers(1000)
+        allUsers
+            .filter { it.id in friendIds }
+            .map { userRow ->
+                User(
+                    id = userRow.authUserId,
+                    displayName = userRow.displayName,
+                    username = userRow.username,
+                    email = userRow.email,
+                    avatarUrl = userRow.avatarUrl,
+                    createdAtIso = userRow.createdAt,
+                    homeCityId = null,
+                    level = userRow.level.toInt(),
+                    xpTotal = userRow.xpTotal.toInt()
+                )
+            }
+    }
+
+    suspend fun removeFriend(
+        authUserId: String,
+        friendAuthUserId: String
+    ): Result<Unit> = runCatching {
+        val currentUser = dataSource.getUserRowByAuthId(authUserId)
+            ?: throw Exception("Current user not found")
+        val friendUser = dataSource.getUserRowByAuthId(friendAuthUserId)
+            ?: throw Exception("Friend user not found")
+        dataSource.removeFriend(currentUser.id, friendUser.id)
+    }
+
+    suspend fun isFriend(authUserId: String, otherUserId: Long): Result<Boolean> = runCatching {
+        val currentUser = dataSource.getUserRowByAuthId(authUserId)
+            ?: throw Exception("Current user not found")
+        dataSource.isFriend(currentUser.id, otherUserId)
+    }
+
+    suspend fun searchUsers(query: String, limit: Int = 20): Result<List<User>> = runCatching {
+        val userRows = dataSource.searchUsers(query, limit)
+        userRows.map { userRow ->
+            User(
+                id = userRow.authUserId,
+                displayName = userRow.displayName,
+                username = userRow.username,
+                email = userRow.email,
+                avatarUrl = userRow.avatarUrl,
+                createdAtIso = userRow.createdAt,
+                homeCityId = null,
+                level = userRow.level.toInt(),
+                xpTotal = userRow.xpTotal.toInt()
+            )
+        }
+    }
+
+    suspend fun getFriendsLeaderboard(authUserId: String): Result<List<User>> = runCatching {
+        val friends = getFriends(authUserId).getOrThrow()
+        friends.sortedByDescending { it.xpTotal }
     }
 }

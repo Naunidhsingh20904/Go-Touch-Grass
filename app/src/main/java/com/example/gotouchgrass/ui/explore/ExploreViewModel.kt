@@ -1,6 +1,7 @@
 package com.example.gotouchgrass.ui.explore
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
@@ -78,7 +79,7 @@ class ExploreViewModel(
         repository = repository
     )
 
-    var totalXP by mutableStateOf(0)
+    var totalXP by mutableIntStateOf(0)
         private set
 
     var dailyChallenges by mutableStateOf<List<ChallengeCardData>>(emptyList())

@@ -296,13 +296,3 @@ fun LocationCard(
         }
     }
 }
-
-@Preview(showBackground = true)
-@Composable
-fun SearchScreenPreview() {
-    GoTouchGrassTheme {
-        val context = LocalContext.current
-        val locationTracker = remember { AppLocationTracker(context.applicationContext) }
-        SearchScreen(viewModel = SearchViewModel(), locationTracker = locationTracker)
-    }
-}
