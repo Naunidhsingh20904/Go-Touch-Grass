@@ -184,14 +184,11 @@ fun EditProfileDialog(
                     val confirm = confirmPassword.trim()
                     if (u.isBlank()) return@Button
                     if (d.isBlank()) {
-                        localError = "Display name cannot be empty"
                         return@Button
                     }
                     if (pwd.isNotEmpty() && pwd != confirm) {
-                        localError = "Passwords do not match"
                         return@Button
                     }
-                    localError = null
                     onSave(u, d, pwd.ifEmpty { null }, avatarKey)
                 },
                 enabled = !isSaving && username.isNotBlank() && displayName.isNotBlank()

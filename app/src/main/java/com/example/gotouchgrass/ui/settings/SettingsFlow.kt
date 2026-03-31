@@ -113,6 +113,7 @@ fun SettingsFlow(
                         viewModel.preferences.copy(notificationsEnabled = true)
                     )
                 }
+
                 else -> {
                     pendingNotificationEnable = true
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -156,6 +157,7 @@ fun SettingsFlow(
             showPrivacy -> {
                 PrivacyPermissionsScreen(onBackClick = { showPrivacy = false })
             }
+
             else -> {
                 SettingsScreen(
                     viewModel = viewModel,
@@ -191,17 +193,12 @@ fun SettingsFlow(
             onDismiss = {
                 if (!editSaving) {
                     showEditProfile = false
-                    editError = null
                 }
             },
             onSave = { username, displayName, newPassword, avatarKey ->
-                editSaving = true
-                editError = null
                 scope.launch {
                     val profileUpdater = profileViewModel
                     if (profileUpdater == null) {
-                        editError = "Could not update profile"
-                        editSaving = false
                         return@launch
                     }
 
