@@ -14,7 +14,7 @@ import com.example.gotouchgrass.R
 // Font Choice: Inter (or system default)
 // - Clean, modern, highly legible on mobile
 // - Professional but friendly - appeals to 20-32 demographic
-// - Excellent number legibility (important for XP, coins, stats)
+// - Excellent number legibility (important for XP and stats)
 
 // Using system default for now
 val AppFontFamily = FontFamily.Default
@@ -117,7 +117,7 @@ val Typography = Typography(
     ),
 
     // ============ LABELS ============
-    // Used for: Buttons, chips, XP/coin amounts, badges
+    // Used for: Buttons, chips, XP amounts, badges
     labelLarge = TextStyle(
         fontFamily = AppFontFamily,
         fontWeight = FontWeight.Medium,

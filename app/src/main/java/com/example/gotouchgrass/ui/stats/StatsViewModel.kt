@@ -23,11 +23,10 @@ class StatsViewModel(
         FakeData.users.firstOrNull()?.let { user ->
             LifetimeStats(
                 totalXp = user.xpTotal,
-                coinsEarned = 2340,
                 totalDistanceKm = 127f,
                 citiesExplored = 3
             )
-        } ?: LifetimeStats(totalXp = 0, coinsEarned = 0, totalDistanceKm = 0f, citiesExplored = 0)
+        } ?: LifetimeStats(totalXp = 0, totalDistanceKm = 0f, citiesExplored = 0)
     )
         private set
 
