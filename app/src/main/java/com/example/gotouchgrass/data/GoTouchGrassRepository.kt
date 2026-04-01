@@ -3,6 +3,7 @@ package com.example.gotouchgrass.data
 import com.example.gotouchgrass.data.supabase.ChallengeProgressRow
 import com.example.gotouchgrass.data.supabase.ChallengeRow
 import com.example.gotouchgrass.data.supabase.FriendRequestRow
+import com.example.gotouchgrass.data.supabase.LandmarkInsert
 import com.example.gotouchgrass.data.supabase.RouteRow
 import com.example.gotouchgrass.data.supabase.SearchActivityInsert
 import com.example.gotouchgrass.data.supabase.SupabaseDataSource
@@ -144,7 +145,7 @@ open class GoTouchGrassRepository(
                     userId = userRow.id,
                     zoneId = landmark.zoneId,
                     landmarkId = landmark.id,
-                    rarityAtTime = rarityScoreForLandmarkCategoryName(landmark.category),
+                    rarityAtTime = rarityScoreForLandmarkCategoryName(landmark.category ?: "OTHER"),
                     xpAwarded = captureXpAward
                 )
             )
@@ -166,8 +167,39 @@ open class GoTouchGrassRepository(
         }
 
     suspend fun isPlaceMappedForCapture(placeId: String): Result<Boolean> = runCatching {
-        getMappedLandmarkCategoryForPlaceId(placeId).getOrThrow() != null
+        val normalizedPlaceId = placeId.trim()
+        if (normalizedPlaceId.isBlank()) return@runCatching false
+        dataSource.fetchLandmarkByPlaceId(normalizedPlaceId) != null
     }
+
+    suspend fun ensureLandmarkMappedForCapture(userId: String, placeId: String): Result<String?> =
+        runCatching {
+            val normalizedPlaceId = placeId.trim()
+            require(normalizedPlaceId.isNotBlank()) { "Place ID cannot be empty." }
+
+            val existing = dataSource.fetchLandmarkByPlaceId(normalizedPlaceId)
+            if (existing != null) return@runCatching existing.category
+
+            val creatorUserId = dataSource.getUserRowByAuthId(userId)?.id
+            val insertResult = runCatching {
+                dataSource.insertLandmark(
+                    LandmarkInsert(
+                        placeId = normalizedPlaceId,
+                        createdByUserId = creatorUserId,
+                        isVerified = false
+                    )
+                )
+            }
+
+            if (insertResult.isFailure) {
+                // might've been updated still so check if it exists
+                val mappedAfterFailure = dataSource.fetchLandmarkByPlaceId(normalizedPlaceId)
+                if (mappedAfterFailure != null) return@runCatching mappedAfterFailure.category
+                throw (insertResult.exceptionOrNull() ?: IllegalStateException("Landmark mapping failed."))
+            }
+
+            dataSource.fetchLandmarkByPlaceId(normalizedPlaceId)?.category
+        }
 
     suspend fun getLatestCaptureDateForPlaceId(
         userId: String, placeId: String
@@ -208,7 +240,7 @@ open class GoTouchGrassRepository(
             CollectedLandmark(
                 landmarkId = landmarkId,
                 placeId = landmark.placeId,
-                category = landmark.category,
+                category = landmark.category ?: "OTHER",
                 capturedAtIso = capturedAt
             )
         }

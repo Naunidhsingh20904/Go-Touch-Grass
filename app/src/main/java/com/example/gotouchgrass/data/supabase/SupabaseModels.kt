@@ -40,8 +40,17 @@ data class ZoneRow(
 data class LandmarkRow(
     val id: Long,
     @SerialName("created_at") val createdAt: String,
-    @SerialName("zone_id") val zoneId: Long,
-    val category: String,
+    @SerialName("zone_id") val zoneId: Long? = null,
+    val category: String? = null,
+    @SerialName("place_id") val placeId: String,
+    @SerialName("created_by_user_id") val createdByUserId: Long? = null,
+    @SerialName("is_verified") val isVerified: Boolean? = null
+)
+
+@Serializable
+data class LandmarkInsert(
+    @SerialName("zone_id") val zoneId: Long? = null,
+    val category: String? = null,
     @SerialName("place_id") val placeId: String,
     @SerialName("created_by_user_id") val createdByUserId: Long? = null,
     @SerialName("is_verified") val isVerified: Boolean? = null
@@ -190,7 +199,7 @@ data class CaptureRow(
     val id: Long,
     @SerialName("created_at") val createdAt: String,
     @SerialName("user_id") val userId: Long,
-    @SerialName("zone_id") val zoneId: Long,
+    @SerialName("zone_id") val zoneId: Long? = null,
     @SerialName("landmark_id") val landmarkId: Long? = null,
     @SerialName("captured_at") val capturedAt: String? = null,
     @SerialName("rarity_at_time") val rarityAtTime: Double,
@@ -200,7 +209,7 @@ data class CaptureRow(
 @Serializable
 data class CaptureInsert(
     @SerialName("user_id") val userId: Long,
-    @SerialName("zone_id") val zoneId: Long,
+    @SerialName("zone_id") val zoneId: Long? = null,
     @SerialName("landmark_id") val landmarkId: Long? = null,
     @SerialName("rarity_at_time") val rarityAtTime: Double,
     @SerialName("xp_awarded") val xpAwarded: Int
