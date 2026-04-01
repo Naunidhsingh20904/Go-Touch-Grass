@@ -49,6 +49,7 @@ import com.example.gotouchgrass.ui.friends.FriendsScreen
 import com.example.gotouchgrass.ui.friends.FriendsViewModel
 import com.example.gotouchgrass.ui.map.MapScreen
 import com.example.gotouchgrass.ui.map.MapViewModel
+import com.example.gotouchgrass.ui.map.TripViewModel
 import com.example.gotouchgrass.ui.screens.AuthScreen
 import com.example.gotouchgrass.ui.screens.AuthViewModel
 import com.example.gotouchgrass.ui.screens.ProfileScreen
@@ -155,6 +156,16 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                     mapRepository = mapRepository
                 )
                 MapViewModel(model = model)
+            }
+        }
+        val tripViewModel = remember(currentUserId) {
+            currentUserId?.let {
+                TripViewModel(
+                    repository = repository,
+                    prefsStore = appPrefs,
+                    currentUserId = it,
+                    appContext = appContext
+                )
             }
         }
         val authViewModel = remember { AuthViewModel() }
@@ -312,6 +323,7 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                                     repository = repository,
                                     currentUserId = currentUserId,
                                     viewModel = mapViewModel,
+                                    tripViewModel = tripViewModel,
                                     locationServicesEnabled = settingsViewModel.preferences.locationServicesEnabled,
                                     locationTracker = locationTracker
                                 ) {

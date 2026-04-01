@@ -75,4 +75,7 @@ class MapViewModel(
         savedCameraTarget = target
         savedCameraZoom = zoom
     }
+
+    // Callback set by MapScreen so the NearbyAreasOverlay "Start" button can kick off a route trip
+    var onStartRoute: ((com.example.gotouchgrass.domain.ExploreRouteItem) -> Unit)? = null
 }

@@ -210,6 +210,19 @@ open class SupabaseDataSource(
         }
     }.decodeList()
 
+    suspend fun insertVisitSession(row: VisitSessionInsert) {
+        supabaseClient.from(TABLE_VISIT_SESSIONS).insert(row)
+    }
+
+    suspend fun fetchAllZones(): List<ZoneRow> =
+        supabaseClient.from(TABLE_ZONES).select().decodeList<ZoneRow>()
+
+    suspend fun fetchRouteStopsByRouteId(routeId: Long): List<RouteStopRow> =
+        supabaseClient.from(TABLE_ROUTE_STOPS).select {
+            filter { eq("route_id", routeId) }
+            order("order_index", Order.ASCENDING)
+        }.decodeList()
+
     // friendship management
 
     suspend fun sendFriendRequest(requesterId: Long, recipientId: Long) {

@@ -7,10 +7,13 @@ import com.example.gotouchgrass.data.supabase.RouteRow
 import com.example.gotouchgrass.data.supabase.SearchActivityInsert
 import com.example.gotouchgrass.data.supabase.SupabaseDataSource
 import com.example.gotouchgrass.data.supabase.UserSettingsUpsert
+import com.example.gotouchgrass.data.supabase.VisitSessionInsert
+import com.example.gotouchgrass.domain.TripZone
 import com.example.gotouchgrass.domain.ChallengeTimeWindow
 import com.example.gotouchgrass.domain.ChallengeType
 import com.example.gotouchgrass.domain.ExploreChallengeItem
 import com.example.gotouchgrass.domain.ExploreRouteItem
+import com.example.gotouchgrass.domain.LatLng
 import com.example.gotouchgrass.domain.LeaderboardData
 import com.example.gotouchgrass.domain.LifetimeStats
 import com.example.gotouchgrass.domain.RouteDifficulty
@@ -21,6 +24,9 @@ import com.example.gotouchgrass.domain.UserPreferences
 import com.example.gotouchgrass.domain.WeeklySummary
 import com.example.gotouchgrass.domain.isValidAvatarPresetKey
 import com.example.gotouchgrass.domain.rarityScoreForLandmarkCategoryName
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.json.JSONObject
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -403,6 +409,82 @@ open class GoTouchGrassRepository(
 
         entries
     }
+
+    // ── Trip / visit session ──────────────────────────────────────────────────
+
+    suspend fun recordVisitSession(
+        userId: String,
+        startedAtIso: String,
+        endedAtIso: String,
+        durationSec: Long,
+        dominantZoneId: Long?
+    ): Result<Unit> = runCatching {
+        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching
+        dataSource.insertVisitSession(
+            VisitSessionInsert(
+                userId = userRow.id,
+                zoneId = dominantZoneId,
+                startedAt = startedAtIso,
+                endedAt = endedAtIso,
+                durationSec = durationSec,
+                source = "AUTO"
+            )
+        )
+    }
+
+    suspend fun addXpForTrip(userId: String, xpAmount: Int): Result<Unit> = runCatching {
+        if (xpAmount <= 0) return@runCatching
+        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching
+        dataSource.updateUserXpTotal(
+            userId = userRow.id,
+            newXpTotal = userRow.xpTotal + xpAmount.toLong()
+        )
+    }
+
+    suspend fun getZonesForTrip(): Result<List<TripZone>> = runCatching {
+        dataSource.fetchAllZones().mapNotNull { row ->
+            val polygon = parseZoneBoundingBox(row.boundingBox) ?: return@mapNotNull null
+            TripZone(id = row.id, name = row.name, polygon = polygon)
+        }
+    }
+
+    private fun parseZoneBoundingBox(element: kotlinx.serialization.json.JsonElement): List<LatLng>? {
+        return try {
+            val array = element.jsonArray
+            if (array.isEmpty()) return null
+            // Try [{lat:.., lng:..}] format first, then [[lat, lng]] format
+            array.map { item ->
+                val obj = item.jsonObject
+                val lat = obj["lat"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                    ?: obj["latitude"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                val lng = obj["lng"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                    ?: obj["longitude"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                if (lat != null && lng != null) LatLng(lat, lng)
+                else {
+                    // Fallback: [[lat, lng], ...]
+                    val inner = item.jsonArray
+                    val lat2 = inner[0].jsonPrimitive.content.toDouble()
+                    val lng2 = inner[1].jsonPrimitive.content.toDouble()
+                    LatLng(lat2, lng2)
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    suspend fun getRouteStopLandmarks(routeId: Long): Result<List<Pair<Long, String>>> =
+        runCatching {
+            // Returns list of (landmarkId, placeId) for each stop that has a landmark
+            val stops = dataSource.fetchRouteStopsByRouteId(routeId)
+            val landmarkIds = stops.mapNotNull { it.landmarkId }
+            if (landmarkIds.isEmpty()) return@runCatching emptyList()
+            val landmarks = dataSource.fetchLandmarksByIds(landmarkIds)
+            stops.sortedBy { it.orderIndex }.mapNotNull { stop ->
+                val lm = landmarks.firstOrNull { it.id == stop.landmarkId } ?: return@mapNotNull null
+                Pair(lm.id, lm.placeId)
+            }
+        }
 
     // friendship management
 

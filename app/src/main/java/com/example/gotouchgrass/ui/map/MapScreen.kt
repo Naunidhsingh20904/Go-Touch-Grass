@@ -26,7 +26,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,11 +55,13 @@ import com.example.gotouchgrass.data.FakeMapRepository
 import com.example.gotouchgrass.data.FakeProfileRepository
 import com.example.gotouchgrass.data.GoTouchGrassRepository
 import com.example.gotouchgrass.domain.MapModel
+import com.example.gotouchgrass.domain.RouteStopMapMarker
 import com.example.gotouchgrass.location.AppLocationTracker
 import com.example.gotouchgrass.ui.map.capture.CaptureScreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
 import com.example.gotouchgrass.ui.theme.GoTouchGrassTheme
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.places.api.model.Place
@@ -119,6 +123,7 @@ fun MapScreen(
     repository: GoTouchGrassRepository? = null,
     currentUserId: String? = null,
     viewModel: MapViewModel? = null,
+    tripViewModel: TripViewModel? = null,
     locationServicesEnabled: Boolean = true,
     locationTracker: AppLocationTracker,
     onPlaceLoaded: () -> Unit = {}
@@ -143,6 +148,44 @@ fun MapScreen(
 
     val mayUseLocation = locationServicesEnabled && isLocationPermissionGranted
     val effectiveUserLocation = if (mayUseLocation) userLocation else null
+
+    // ── Trip UI state ─────────────────────────────────────────────────────────
+
+    // Forward location updates into TripViewModel
+    LaunchedEffect(effectiveUserLocation) {
+        val loc = effectiveUserLocation ?: return@LaunchedEffect
+        tripViewModel?.onLocationUpdate(loc)
+    }
+
+    // Resolve route stop place IDs → lat/lngs via Places API
+    val pendingStopPlaceIds = tripViewModel?._pendingRouteStopPlaceIds ?: emptyList()
+    LaunchedEffect(pendingStopPlaceIds, placesClient) {
+        if (pendingStopPlaceIds.isEmpty() || placesClient == null) return@LaunchedEffect
+        tripViewModel?.clearPendingRouteStops()
+
+        val resolved = mutableListOf<RouteStopMapMarker>()
+        pendingStopPlaceIds.forEachIndexed { idx, (landmarkId, placeId) ->
+            val fields = listOf(Place.Field.NAME, Place.Field.LAT_LNG)
+            val request = FetchPlaceRequest.newInstance(placeId, fields)
+            placesClient.fetchPlace(request).addOnSuccessListener { response ->
+                val place = response.place
+                val latLng = place.latLng ?: return@addOnSuccessListener
+                resolved.add(
+                    RouteStopMapMarker(
+                        stopIndex = idx,
+                        landmarkId = landmarkId,
+                        placeId = placeId,
+                        placeName = place.name ?: "Stop ${idx + 1}",
+                        latLng = latLng,
+                        hintText = null
+                    )
+                )
+                if (resolved.size == pendingStopPlaceIds.size) {
+                    tripViewModel?.updateRouteStopMarkers(resolved.sortedBy { it.stopIndex })
+                }
+            }
+        }
+    }
 
     LaunchedEffect(locationServicesEnabled) {
         if (!locationServicesEnabled) {
@@ -317,6 +360,8 @@ fun MapScreen(
                 capturedPlaceIds = capturedPlaceIds + capturedPlaceId
                 captureTarget = null
                 selectedPoi = null
+                // 120 XP is the fixed capture award (matches recordCaptureByPlaceId)
+                tripViewModel?.onCapture(xpAwarded = 120)
                 viewModel?.refresh()
             })
         return
@@ -422,6 +467,20 @@ fun MapScreen(
                     state = MarkerState(position = poi.latLng), title = poi.name
                 )
             }
+
+            // Route stop markers when a route trip is active
+            tripViewModel?.routeStopMarkers?.forEachIndexed { idx, stop ->
+                val isCaptured = capturedPlaceIds.contains(stop.placeId)
+                Marker(
+                    state = MarkerState(position = stop.latLng),
+                    title = stop.placeName,
+                    snippet = if (stop.hintText != null) stop.hintText else "Stop ${idx + 1}",
+                    icon = BitmapDescriptorFactory.defaultMarker(
+                        if (isCaptured) BitmapDescriptorFactory.HUE_GREEN
+                        else BitmapDescriptorFactory.HUE_AZURE
+                    )
+                )
+            }
         }
 
         // --- Overlay: Header (compact centered pill) ---
@@ -442,28 +501,52 @@ fun MapScreen(
             )
         }
 
-        // --- Overlay: Footer (single nearby card with pager dots) ---
-        viewModel?.let { vm ->
-            val routes = vm.nearbyRoutes
-            if (routes.isNotEmpty()) {
-                if (currentNearbyIndex !in routes.indices) {
-                    currentNearbyIndex = 0
-                }
-                NearbyAreasOverlay(
-                    route = routes[currentNearbyIndex],
-                    index = currentNearbyIndex,
-                    total = routes.size,
+        // --- Overlay: Active trip bar (shown when trip is running) ---
+        tripViewModel?.let { tvm ->
+            if (tvm.isActive) {
+                ActiveTripBar(
+                    elapsedSeconds = tvm.elapsedSeconds,
+                    distanceMeters = tvm.distanceMeters,
+                    xpEarned = tvm.xpEarned,
+                    captureCount = tvm.captureCount,
+                    routeName = tvm.activeRouteName,
+                    onEndTrip = { tvm.endTrip(); viewModel?.refresh() },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(
                             start = GoTouchGrassDimens.SpacingMd,
                             end = GoTouchGrassDimens.SpacingMd,
                             bottom = 72.dp
-                        ),
-                    onNext = {
-                        currentNearbyIndex = (currentNearbyIndex + 1) % routes.size
-                    })
+                        )
+                )
             }
+        }
+
+        // --- Overlay: Footer — route card + Free Roam in one surface (hidden during active trip) ---
+        val tripActive = tripViewModel?.isActive == true
+        if (!tripActive) {
+            val routes = viewModel?.nearbyRoutes ?: emptyList()
+            if (currentNearbyIndex !in routes.indices && routes.isNotEmpty()) {
+                currentNearbyIndex = 0
+            }
+            NearbyAreasOverlay(
+                route = routes.getOrNull(currentNearbyIndex),
+                index = currentNearbyIndex,
+                total = routes.size,
+                showTripLauncher = tripViewModel != null,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(
+                        start = GoTouchGrassDimens.SpacingMd,
+                        end = GoTouchGrassDimens.SpacingMd,
+                        bottom = 72.dp
+                    ),
+                onNext = {
+                    if (routes.isNotEmpty()) currentNearbyIndex = (currentNearbyIndex + 1) % routes.size
+                },
+                onStartRoute = { route -> tripViewModel?.startRouteTrip(route) },
+                onStartFreeRoam = { tripViewModel?.startFreeRoamTrip() }
+            )
         }
 
         selectedPoi?.let { poi ->
@@ -499,6 +582,22 @@ fun MapScreen(
                     )
                 },
                 onClose = { selectedPoi = null })
+        }
+
+        // --- Trip Summary Dialog ---
+        tripViewModel?.let { tvm ->
+            if (tvm.showSummary) {
+                val summary = tvm.lastSummary
+                if (summary != null) {
+                    TripSummaryDialog(
+                        summary = summary,
+                        onDismiss = {
+                            tvm.dismissSummary()
+                            viewModel?.refresh()
+                        }
+                    )
+                }
+            }
         }
 
         if (!locationServicesEnabled || !isLocationPermissionGranted) {
@@ -642,12 +741,18 @@ private fun MapHeaderOverlay(
 
 @Composable
 private fun NearbyAreasOverlay(
-    route: com.example.gotouchgrass.domain.ExploreRouteItem,
+    route: com.example.gotouchgrass.domain.ExploreRouteItem?,
     index: Int,
     total: Int,
+    showTripLauncher: Boolean = false,
     modifier: Modifier = Modifier,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    onStartRoute: ((com.example.gotouchgrass.domain.ExploreRouteItem) -> Unit)? = null,
+    onStartFreeRoam: (() -> Unit)? = null
 ) {
+    // Nothing to show at all
+    if (route == null && !showTripLauncher) return
+
     val cardSurface = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
     val onSurface = MaterialTheme.colorScheme.onSurface
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -661,65 +766,104 @@ private fun NearbyAreasOverlay(
         border = BorderStroke(0.5.dp, onSurface.copy(alpha = 0.09f)),
         tonalElevation = GoTouchGrassDimens.ElevationNone
     ) {
-        Column(
-            modifier = Modifier
-                .clickable { onNext() }
-                .padding(horizontal = 14.dp, vertical = 12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "${
-                            route.theme.name.replace("_", " ").lowercase()
-                                .replaceFirstChar { it.uppercase() }
-                        } · nearby", fontSize = 10.sp, color = muted)
-                    Text(
-                        text = route.title,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = onSurface,
-                        maxLines = 1
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = "${route.zoneCount} stops · ~${route.hours}h",
-                        fontSize = 11.sp,
-                        color = muted,
-                        maxLines = 1
-                    )
-                }
+        Column(modifier = Modifier.fillMaxWidth()) {
 
-                Button(
-                    onClick = { /* TODO */ },
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = accent, contentColor = onAccent
-                    ),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+            // ── Route section (only if a route exists) ────────────────────────
+            if (route != null) {
+                Column(
+                    modifier = Modifier
+                        .clickable { onNext() }
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
                 ) {
-                    Text(
-                        text = "Start", fontSize = 11.sp, color = onAccent
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${
+                                    route.theme.name.replace("_", " ").lowercase()
+                                        .replaceFirstChar { it.uppercase() }
+                                } · nearby",
+                                fontSize = 10.sp, color = muted
+                            )
+                            Text(
+                                text = route.title,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = onSurface,
+                                maxLines = 1
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = "${route.zoneCount} stops · ~${route.hours}h",
+                                fontSize = 11.sp,
+                                color = muted,
+                                maxLines = 1
+                            )
+                        }
+
+                        if (showTripLauncher) {
+                            Spacer(Modifier.width(8.dp))
+                            Button(
+                                onClick = { onStartRoute?.invoke(route) },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = accent, contentColor = onAccent
+                                ),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(text = "Start Route", fontSize = 11.sp, color = onAccent)
+                            }
+                        }
+                    }
+
+                    if (total > 1) {
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(
+                                5.dp, Alignment.CenterHorizontally
+                            )
+                        ) {
+                            repeat(total) { i ->
+                                val active = i == index
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = if (active) 18.dp else 6.dp, height = 4.dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(
+                                            if (active) accent else onSurface.copy(alpha = 0.15f)
+                                        )
+                                        .clickable { onNext() }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally)
-            ) {
-                repeat(total) { i ->
-                    val active = i == index
-                    Box(
-                        modifier = Modifier
-                            .size(width = if (active) 18.dp else 6.dp, height = 4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(if (active) accent else onSurface.copy(alpha = 0.15f))
-                            .clickable { onNext() })
+            // ── Free Roam button ─────────────────────────────────────────────
+            if (showTripLauncher) {
+                if (route != null) {
+                    HorizontalDivider(
+                        color = onSurface.copy(alpha = 0.07f),
+                        modifier = Modifier.padding(horizontal = 14.dp)
+                    )
+                }
+                OutlinedButton(
+                    onClick = { onStartFreeRoam?.invoke() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        text = if (route != null) "Start Free Roam Instead" else "Start Free Roam",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
