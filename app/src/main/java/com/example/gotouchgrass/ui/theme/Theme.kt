@@ -37,7 +37,7 @@ private val LightColorScheme = lightColorScheme(
     secondaryContainer = SandLight,
     onSecondaryContainer = TextPrimary,
 
-    // Tertiary - Golden Yellow (XP, coins, achievements)
+    // Tertiary - Golden Yellow (XP, achievements)
     tertiary = GoldenYellow,
     onTertiary = TextPrimary,
     tertiaryContainer = Color(0xFFFFF0C2),     // Light gold container

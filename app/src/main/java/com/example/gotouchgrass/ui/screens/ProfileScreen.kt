@@ -53,7 +53,8 @@ import com.example.gotouchgrass.ui.theme.*
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel,
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onFindFriendsClick: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -104,7 +105,7 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingMd))
 
         // Friends Section
-        FriendsSection(friendInitials = viewModel.friendInitials)
+        FriendsSection(friendInitials = viewModel.friendInitials, onFindFriendsClick = onFindFriendsClick)
 
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingLg))
     }
@@ -595,7 +596,7 @@ private fun ActivityRow(
 }
 
 @Composable
-private fun FriendsSection(friendInitials: List<String>) {
+private fun FriendsSection(friendInitials: List<String>, onFindFriendsClick: () -> Unit = {}) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(GoTouchGrassDimens.RadiusLarge),
@@ -626,7 +627,7 @@ private fun FriendsSection(friendInitials: List<String>) {
                     )
                 }
 
-                TextButton(onClick = { }) {
+                TextButton(onClick = onFindFriendsClick) {
                     Text(
                         text = "Find Friends >",
                         style = MaterialTheme.typography.bodyMedium,

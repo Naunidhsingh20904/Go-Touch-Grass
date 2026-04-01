@@ -13,6 +13,7 @@ import com.example.gotouchgrass.domain.FriendMapMarker
 import com.example.gotouchgrass.domain.TripZone
 import com.example.gotouchgrass.domain.ChallengeTimeWindow
 import com.example.gotouchgrass.domain.ChallengeType
+import com.example.gotouchgrass.domain.CollectedLandmark
 import com.example.gotouchgrass.domain.ExploreChallengeItem
 import com.example.gotouchgrass.domain.ExploreRouteItem
 import com.example.gotouchgrass.domain.LatLng
@@ -190,6 +191,33 @@ open class GoTouchGrassRepository(
         dataSource.fetchLandmarksByIds(capturedLandmarkIds).map { it.placeId }.toSet()
     }
 
+    suspend fun getCollectedLandmarks(userId: String): Result<List<CollectedLandmark>> = runCatching {
+        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching emptyList()
+        val captures = dataSource.fetchCapturesByUser(userRow.id)
+            .filter { it.landmarkId != null && !it.capturedAt.isNullOrBlank() }
+
+        if (captures.isEmpty()) return@runCatching emptyList()
+
+        val landmarkIds = captures.mapNotNull { it.landmarkId }.distinct()
+        val landmarksById = dataSource.fetchLandmarksByIds(landmarkIds).associateBy { it.id }
+
+        captures.mapNotNull { capture ->
+            val landmarkId = capture.landmarkId ?: return@mapNotNull null
+            val capturedAt = capture.capturedAt ?: return@mapNotNull null
+            val landmark = landmarksById[landmarkId] ?: return@mapNotNull null
+            CollectedLandmark(
+                landmarkId = landmarkId,
+                placeId = landmark.placeId,
+                category = landmark.category,
+                capturedAtIso = capturedAt
+            )
+        }
+    }
+
+    suspend fun getTotalCapturedLandmarks(userId: String): Result<Int> = runCatching {
+        getCollectedLandmarks(userId).getOrThrow().size
+    }
+
     // call this from real game events (zone capture, location visit, etc.)
     // TODO logic suggested by Claude Sonnet 4.6
     suspend fun recordChallengeProgress(
@@ -321,11 +349,10 @@ open class GoTouchGrassRepository(
 
     suspend fun getLifetimeStats(userId: String): Result<LifetimeStats> = runCatching {
         val user = dataSource.getUserById(userId).getOrThrow() ?: return@runCatching LifetimeStats(
-            totalXp = 0, coinsEarned = 0, totalDistanceKm = 0f, citiesExplored = 0
+            totalXp = 0, totalDistanceKm = 0f, citiesExplored = 0
         )
         LifetimeStats(
             totalXp = user.xpTotal,
-            coinsEarned = 0,        // TODO: fetch from coins table when available
             totalDistanceKm = 0f,   // TODO: compute from visit_session table when available
             citiesExplored = 0      // TODO: compute from city_completion table when available
         )
@@ -389,13 +416,16 @@ open class GoTouchGrassRepository(
     suspend fun getLeaderboard(currentUserId: String): Result<List<LeaderboardData>> = runCatching {
         val topUsers = dataSource.fetchLeaderboardUsers(20)
         val currentUserRow = dataSource.getUserRowByAuthId(currentUserId)
+        
+        val XP_PER_LEVEL = 1000
 
         val entries = topUsers.mapIndexed { index, userRow ->
             val isCurrentUser = userRow.authUserId == currentUserId
+            val derivedLevel = (userRow.xpTotal / XP_PER_LEVEL) + 1
             LeaderboardData(
                 rank = (index + 1).toString(),
                 name = if (isCurrentUser) "You" else userRow.displayName,
-                level = "Level ${userRow.level}",
+                level = "Level $derivedLevel",
                 xp = "%,d XP".format(userRow.xpTotal),
                 isGoldRank = index == 0,
                 isCurrentUser = isCurrentUser
@@ -403,11 +433,12 @@ open class GoTouchGrassRepository(
         }.toMutableList()
 
         if (currentUserRow != null && topUsers.none { it.authUserId == currentUserId }) {
+            val derivedLevel = (currentUserRow.xpTotal / XP_PER_LEVEL) + 1
             entries.add(
                 LeaderboardData(
                     rank = "...",
                     name = "You",
-                    level = "Level ${currentUserRow.level}",
+                    level = "Level $derivedLevel",
                     xp = "%,d XP".format(currentUserRow.xpTotal),
                     isGoldRank = false,
                     isCurrentUser = true

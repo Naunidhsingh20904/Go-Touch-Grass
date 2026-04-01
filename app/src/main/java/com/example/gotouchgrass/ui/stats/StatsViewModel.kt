@@ -1,6 +1,7 @@
 package com.example.gotouchgrass.ui.stats
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -23,11 +24,10 @@ class StatsViewModel(
         FakeData.users.firstOrNull()?.let { user ->
             LifetimeStats(
                 totalXp = user.xpTotal,
-                coinsEarned = 2340,
                 totalDistanceKm = 127f,
                 citiesExplored = 3
             )
-        } ?: LifetimeStats(totalXp = 0, coinsEarned = 0, totalDistanceKm = 0f, citiesExplored = 0)
+        } ?: LifetimeStats(totalXp = 0, totalDistanceKm = 0f, citiesExplored = 0)
     )
         private set
 
@@ -61,6 +61,9 @@ class StatsViewModel(
     )
         private set
 
+    var totalLandmarksCaptured by mutableIntStateOf(0)
+        private set
+
     init {
         loadStats()
     }
@@ -81,6 +84,9 @@ class StatsViewModel(
             }
             repo.getWeeklySummary(uid).onSuccess { summary ->
                 weeklySummary = summary
+            }
+            repo.getTotalCapturedLandmarks(uid).onSuccess { total ->
+                totalLandmarksCaptured = total
             }
             isLoadingLeaderboard = true
             repo.getLeaderboard(uid).onSuccess { entries ->

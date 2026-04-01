@@ -22,6 +22,7 @@ interface ProfileRepository {
     suspend fun getLifetimeStats(userId: String): Result<LifetimeStats>
     suspend fun getStreakData(userId: String): Result<StreakData>
     suspend fun getWeeklySummary(userId: String): Result<WeeklySummary>
+    suspend fun getFriends(userId: String): Result<List<User>>
 }
 
 /**
@@ -48,6 +49,9 @@ class SupabaseProfileRepository(
 
     override suspend fun getWeeklySummary(userId: String): Result<WeeklySummary> =
         repository.getWeeklySummary(userId)
+
+    override suspend fun getFriends(userId: String): Result<List<User>> =
+        repository.getFriends(userId)
 }
 
 /**
@@ -76,7 +80,6 @@ class FakeProfileRepository : ProfileRepository {
         val user = FakeData.users.find { it.id == userId }
         LifetimeStats(
             totalXp = user?.xpTotal ?: 0,
-            coinsEarned = 0,
             totalDistanceKm = 0f,
             citiesExplored = 0
         )
@@ -101,6 +104,10 @@ class FakeProfileRepository : ProfileRepository {
             xpEarned = 0,
             dailyActivity = listOf(0.2f, 0.5f, 0.8f, 0.3f, 0.0f, 0.0f, 0.0f)
         )
+    }
+
+    override suspend fun getFriends(userId: String): Result<List<User>> = runCatching {
+        FakeData.users.take(3).filter { it.id != userId }
     }
 }
 

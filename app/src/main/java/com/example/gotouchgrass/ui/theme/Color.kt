@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.Color
 // ===========================================
 // Design Philosophy:
 // - Primary: Forest Green - Nature, growth, outdoor exploration
-// - Accent: Golden Yellow - Achievement, rewards, gamification (XP/coins)
+// - Accent: Golden Yellow - Achievement, rewards, gamification (XP)
 // - Neutrals: Warm sand/cream tones - Organic, inviting, earth-like
 // Target Audience: Students & Young Adults (20-32)
 
@@ -18,8 +18,8 @@ val ForestGreenLight = Color(0xFF3D7A52)      // Primary in dark mode (more visi
 val ForestGreenDark = Color(0xFF1E3D29)       // Pressed/active states
 
 // ============ ACCENT COLORS ============
-// Golden Yellow - Gamification elements (XP, coins, badges, achievements)
-val GoldenYellow = Color(0xFFE8B931)          // Coins, XP bars, achievement highlights
+// Golden Yellow - Gamification elements (XP, badges, achievements)
+val GoldenYellow = Color(0xFFE8B931)          // XP bars, achievement highlights
 val GoldenYellowLight = Color(0xFFF5D060)     // Hover/light accent states
 val GoldenYellowDark = Color(0xFFBF9520)      // Pressed accent states
 
@@ -61,6 +61,3 @@ val RarityLegendary = Color(0xFFFFB300)       // Legendary zones - Gold/Amber
 // For XP bars and progress indicators
 val XpBarStart = ForestGreen
 val XpBarEnd = Color(0xFF4CAF50)              // Lighter green for gradient end
-
-val CoinGradientStart = GoldenYellow
-val CoinGradientEnd = Color(0xFFFDD835)       // Brighter yellow for coin shine

@@ -351,8 +351,7 @@ object FakeData {
             capturedAtIso = "2025-10-01T14:10:00Z",
             proofType = CaptureProofType.GEOFENCE,
             rarityAtTime = RarityScore(0.70),
-            xpAwarded = 150,
-            coinsAwarded = 25
+            xpAwarded = 150
         ),
         Capture(
             id = "cap_waterloo_park",
@@ -362,8 +361,7 @@ object FakeData {
             capturedAtIso = "2025-10-02T22:20:00Z",
             proofType = CaptureProofType.GPS,
             rarityAtTime = RarityScore(0.85),
-            xpAwarded = 200,
-            coinsAwarded = 30
+            xpAwarded = 200
         ),
         Capture(
             id = "cap_conestoga_food",
@@ -373,8 +371,7 @@ object FakeData {
             capturedAtIso = "2025-10-03T19:10:00Z",
             proofType = CaptureProofType.QR,
             rarityAtTime = RarityScore(0.40),
-            xpAwarded = 75,
-            coinsAwarded = 10
+            xpAwarded = 75
         )
     )
 
@@ -524,8 +521,7 @@ object FakeData {
             challengeType = ChallengeType.VISIT,
             timeWindow = ChallengeTimeWindow.DAILY,
             ruleConfigJson = """{"uniqueZones":1,"cityId":"city_waterloo"}""",
-            rewardXP = 100,
-            rewardCoins = 10
+            rewardXP = 100
         ),
         Challenge(
             id = "challenge_weekly_ring_road",
@@ -534,8 +530,7 @@ object FakeData {
             challengeType = ChallengeType.EXPLORE,
             timeWindow = ChallengeTimeWindow.WEEKLY,
             ruleConfigJson = """{"distanceKm":3.0,"zoneId":"zone_uw_main_campus"}""",
-            rewardXP = 350,
-            rewardCoins = 35
+            rewardXP = 350
         ),
         Challenge(
             id = "challenge_weekly_park_reset",
@@ -544,8 +539,7 @@ object FakeData {
             challengeType = ChallengeType.TIME,
             timeWindow = ChallengeTimeWindow.WEEKLY,
             ruleConfigJson = """{"timeMinutes":120,"zoneId":"zone_waterloo_park"}""",
-            rewardXP = 250,
-            rewardCoins = 20
+            rewardXP = 250
         )
     )
 
