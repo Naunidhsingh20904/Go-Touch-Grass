@@ -9,6 +9,7 @@ import com.example.gotouchgrass.data.supabase.SupabaseDataSource
 import com.example.gotouchgrass.data.supabase.UserSettingsUpsert
 import com.example.gotouchgrass.domain.ChallengeTimeWindow
 import com.example.gotouchgrass.domain.ChallengeType
+import com.example.gotouchgrass.domain.CollectedLandmark
 import com.example.gotouchgrass.domain.ExploreChallengeItem
 import com.example.gotouchgrass.domain.ExploreRouteItem
 import com.example.gotouchgrass.domain.LeaderboardData
@@ -177,6 +178,33 @@ open class GoTouchGrassRepository(
         if (capturedLandmarkIds.isEmpty()) return@runCatching emptySet()
 
         dataSource.fetchLandmarksByIds(capturedLandmarkIds).map { it.placeId }.toSet()
+    }
+
+    suspend fun getCollectedLandmarks(userId: String): Result<List<CollectedLandmark>> = runCatching {
+        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching emptyList()
+        val captures = dataSource.fetchCapturesByUser(userRow.id)
+            .filter { it.landmarkId != null && !it.capturedAt.isNullOrBlank() }
+
+        if (captures.isEmpty()) return@runCatching emptyList()
+
+        val landmarkIds = captures.mapNotNull { it.landmarkId }.distinct()
+        val landmarksById = dataSource.fetchLandmarksByIds(landmarkIds).associateBy { it.id }
+
+        captures.mapNotNull { capture ->
+            val landmarkId = capture.landmarkId ?: return@mapNotNull null
+            val capturedAt = capture.capturedAt ?: return@mapNotNull null
+            val landmark = landmarksById[landmarkId] ?: return@mapNotNull null
+            CollectedLandmark(
+                landmarkId = landmarkId,
+                placeId = landmark.placeId,
+                category = landmark.category,
+                capturedAtIso = capturedAt
+            )
+        }
+    }
+
+    suspend fun getTotalCapturedLandmarks(userId: String): Result<Int> = runCatching {
+        getCollectedLandmarks(userId).getOrThrow().size
     }
 
     // call this from real game events (zone capture, location visit, etc.)
