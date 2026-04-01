@@ -31,6 +31,13 @@ data class TripZone(
     val polygon: List<LatLng>   // parsed from bounding_box JSON
 )
 
+// A friend's approximate location on the map (derived from last visit session zone)
+data class FriendMapMarker(
+    val displayName: String,
+    val initials: String,
+    val latLng: com.google.android.gms.maps.model.LatLng
+)
+
 // A resolved route stop that has a real lat/lng for map display
 data class RouteStopMapMarker(
     val stopIndex: Int,

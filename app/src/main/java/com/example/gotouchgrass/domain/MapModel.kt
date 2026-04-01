@@ -34,8 +34,8 @@ class MapModel(
         val streak = profileRepository.getStreakData(currentUserId).getOrNull()
         val weekly = profileRepository.getWeeklySummary(currentUserId).getOrNull()
 
-        val level = user?.level ?: 1
         val totalXp = user?.xpTotal ?: 0
+        val level = (totalXp / XP_PER_LEVEL) + 1
         val previousLevelsXp = (level - 1) * XP_PER_LEVEL
         val currentXp = (totalXp - previousLevelsXp).coerceIn(0, XP_PER_LEVEL)
         val maxXp = XP_PER_LEVEL

@@ -56,11 +56,26 @@ class TripViewModel(
     var routeStopMarkers by mutableStateOf<List<RouteStopMapMarker>>(emptyList())
         private set
 
+    var showCelebration by mutableStateOf(false)
+        private set
+
     var showSummary by mutableStateOf(false)
         private set
 
     var lastSummary by mutableStateOf<TripSummary?>(null)
         private set
+
+    var levelUp by mutableStateOf(false)
+        private set
+
+    var newLevel by mutableIntStateOf(0)
+        private set
+
+    var streakDays by mutableIntStateOf(0)
+        private set
+
+    // Set by MapScreen so it can refresh header + stats after Supabase writes complete
+    var onTripSaved: (() -> Unit)? = null
 
     // ── Internal state ────────────────────────────────────────────────────────
 
@@ -78,6 +93,14 @@ class TripViewModel(
     // ── Init: restore persisted trip on process restart ───────────────────────
 
     init {
+        viewModelScope.launch {
+            // Load current streak for display
+            if (currentUserId != null) {
+                repository.getStreakData(currentUserId).onSuccess { s ->
+                    streakDays = s.currentDays
+                }
+            }
+        }
         viewModelScope.launch {
             val saved = prefsStore.readSavedTrip()
             if (saved.active && saved.startMs > 0L) {
@@ -154,6 +177,7 @@ class TripViewModel(
 
         val dominantZoneId = zoneDwellMap.entries.maxByOrNull { it.value }?.key
 
+        val xpBeforeTrip = xpEarned  // local display XP; real level-up checked after save
         val summary = TripSummary(
             durationSec = durationSec,
             distanceMeters = distanceMeters,
@@ -163,12 +187,16 @@ class TripViewModel(
             dominantZoneId = dominantZoneId
         )
         lastSummary = summary
-        showSummary = true
+        // Show celebration overlay first; summary shown after user dismisses it
+        if (summary.xpEarned > 0) showCelebration = true else showSummary = true
 
         // Stop foreground service
         stopTripService()
 
-        // Save to backend
+        // Capture values before resetTripState() zeroes them
+        val distanceSnapshot = distanceMeters
+
+        // Save to backend, then notify UI to refresh
         val uid = currentUserId
         if (uid != null) {
             viewModelScope.launch {
@@ -179,13 +207,31 @@ class TripViewModel(
                     durationSec = durationSec,
                     dominantZoneId = dominantZoneId
                 )
-                // Distance XP was already baked into xpEarned above
-                // Captures XP was already saved per-capture in recordCaptureByPlaceId
-                // We only need to add the walk-distance portion of XP
-                val distanceXp = (distanceMeters / 10f).toInt()
+                // Only add the walk-distance portion of XP here;
+                // capture XP is already saved per-capture in recordCaptureByPlaceId
+                val distanceXp = (distanceSnapshot / 10f).toInt()
                 if (distanceXp > 0) {
                     repository.addXpForTrip(uid, distanceXp)
                 }
+                // Update daily streak
+                val newStreak = repository.updateDailyExploreStreak(uid).getOrNull() ?: 0
+                streakDays = newStreak
+
+                // Detect level-up (every 1000 XP = 1 level)
+                val freshUser = repository.getUser(uid).getOrNull()
+                if (freshUser != null) {
+                    val freshLevel = freshUser.level
+                    // We compute old level from XP before the trip's distance portion
+                    val oldTotalXp = (freshUser.xpTotal - distanceXp).coerceAtLeast(0)
+                    val oldLevel = (oldTotalXp / 1000) + 1
+                    if (freshLevel > oldLevel) {
+                        newLevel = freshLevel
+                        levelUp = true
+                    }
+                }
+
+                // Notify after all writes are done so UI shows correct values
+                onTripSaved?.invoke()
             }
         }
 
@@ -193,8 +239,17 @@ class TripViewModel(
         resetTripState()
     }
 
+    fun dismissCelebration() {
+        showCelebration = false
+        showSummary = true   // chain into summary
+    }
+
     fun dismissSummary() {
         showSummary = false
+    }
+
+    fun dismissLevelUp() {
+        levelUp = false
     }
 
     fun updateRouteStopMarkers(markers: List<RouteStopMapMarker>) {

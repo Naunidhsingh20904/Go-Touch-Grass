@@ -65,6 +65,10 @@ class StatsViewModel(
         loadStats()
     }
 
+    fun refresh() {
+        loadStats()
+    }
+
     private fun loadStats() {
         val uid = userId ?: return
         val repo = repository ?: return
@@ -76,7 +80,7 @@ class StatsViewModel(
                 if (s.currentDays > 0) streak = s
             }
             repo.getWeeklySummary(uid).onSuccess { summary ->
-                if (summary.zonesVisited > 0) weeklySummary = summary
+                weeklySummary = summary
             }
             isLoadingLeaderboard = true
             repo.getLeaderboard(uid).onSuccess { entries ->

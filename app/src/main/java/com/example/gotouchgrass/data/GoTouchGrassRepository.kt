@@ -7,7 +7,9 @@ import com.example.gotouchgrass.data.supabase.RouteRow
 import com.example.gotouchgrass.data.supabase.SearchActivityInsert
 import com.example.gotouchgrass.data.supabase.SupabaseDataSource
 import com.example.gotouchgrass.data.supabase.UserSettingsUpsert
+import com.example.gotouchgrass.data.supabase.StreakUpsert
 import com.example.gotouchgrass.data.supabase.VisitSessionInsert
+import com.example.gotouchgrass.domain.FriendMapMarker
 import com.example.gotouchgrass.domain.TripZone
 import com.example.gotouchgrass.domain.ChallengeTimeWindow
 import com.example.gotouchgrass.domain.ChallengeType
@@ -28,6 +30,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.json.JSONObject
+import com.google.android.gms.maps.model.LatLng as GmsLatLng
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -146,10 +149,12 @@ open class GoTouchGrassRepository(
             )
 
             // update user xp total on capture
-            dataSource.updateUserXpTotal(
-                userId = userRow.id,
-                newXpTotal = userRow.xpTotal + captureXpAward.toLong()
-            )
+            val newXpTotal = userRow.xpTotal + captureXpAward.toLong()
+            dataSource.updateUserXpTotal(userId = userRow.id, newXpTotal = newXpTotal)
+            val newLevel = (newXpTotal / 1000).toInt() + 1
+            if (newLevel != userRow.level.toInt()) {
+                dataSource.updateUserLevel(userRow.id, newLevel)
+            }
         }
 
     suspend fun getMappedLandmarkCategoryForPlaceId(placeId: String): Result<String?> =
@@ -363,10 +368,13 @@ open class GoTouchGrassRepository(
         val maxSec = dailySeconds.max().takeIf { it > 0 } ?: 1L
         val dailyActivity = dailySeconds.map { (it.toFloat() / maxSec).coerceIn(0f, 1f) }
 
+        val weeklyCaptures = dataSource.fetchWeeklyCaptures(userRow.id, weekStartIso)
+        val weeklyXp = weeklyCaptures.sumOf { it.xpAwarded }
+
         WeeklySummary(
             timeOutside = timeOutside,
             zonesVisited = zonesVisited,
-            xpEarned = 0,           // TODO: compute from xp_event table when available
+            xpEarned = weeklyXp,
             dailyActivity = dailyActivity
         )
     }
@@ -435,10 +443,12 @@ open class GoTouchGrassRepository(
     suspend fun addXpForTrip(userId: String, xpAmount: Int): Result<Unit> = runCatching {
         if (xpAmount <= 0) return@runCatching
         val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching
-        dataSource.updateUserXpTotal(
-            userId = userRow.id,
-            newXpTotal = userRow.xpTotal + xpAmount.toLong()
-        )
+        val newXpTotal = userRow.xpTotal + xpAmount.toLong()
+        dataSource.updateUserXpTotal(userId = userRow.id, newXpTotal = newXpTotal)
+        val newLevel = (newXpTotal / 1000).toInt() + 1
+        if (newLevel != userRow.level.toInt()) {
+            dataSource.updateUserLevel(userRow.id, newLevel)
+        }
     }
 
     suspend fun getZonesForTrip(): Result<List<TripZone>> = runCatching {
@@ -471,6 +481,79 @@ open class GoTouchGrassRepository(
         } catch (_: Exception) {
             null
         }
+    }
+
+    suspend fun updateDailyExploreStreak(userId: String): Result<Int> = runCatching {
+        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching 0
+        val today = LocalDate.now(ZoneOffset.UTC)
+        val existing = dataSource.fetchStreakByType(userRow.id, "DAILY_EXPLORE")
+        val lastDate = existing?.lastCountedDate?.let {
+            runCatching { LocalDate.parse(it) }.getOrNull()
+        }
+
+        // Already counted today — return current streak unchanged
+        if (lastDate == today) return@runCatching existing?.currentCount ?: 1
+
+        val newCount = if (lastDate == today.minusDays(1)) {
+            (existing?.currentCount ?: 0) + 1  // consecutive day
+        } else {
+            1  // gap or first time
+        }
+        val bestCount = maxOf(newCount, existing?.bestCount ?: 0)
+
+        dataSource.upsertStreak(
+            StreakUpsert(
+                userId = userRow.id,
+                type = "DAILY_EXPLORE",
+                currentCount = newCount,
+                bestCount = bestCount,
+                lastCountedDate = today.toString()
+            )
+        )
+        newCount
+    }
+
+    suspend fun getFriendsApproxLocations(authUserId: String): Result<List<FriendMapMarker>> =
+        runCatching {
+            val currentUser = dataSource.getUserRowByAuthId(authUserId)
+                ?: return@runCatching emptyList()
+            val friendIds = dataSource.getUserFriends(currentUser.id)
+            if (friendIds.isEmpty()) return@runCatching emptyList()
+
+            val allUsers = dataSource.fetchLeaderboardUsers(1000)
+            val friendUsers = allUsers.filter { it.id in friendIds }
+            val allZones = dataSource.fetchAllZones()
+
+            val markers = mutableListOf<FriendMapMarker>()
+            for (friend in friendUsers) {
+                val session = dataSource.fetchLatestZonedVisitSessionByUserId(friend.id) ?: continue
+                val zoneId = session.zoneId ?: continue
+                val zone = allZones.firstOrNull { it.id == zoneId } ?: continue
+                val centroid = zoneCentroid(zone.boundingBox) ?: continue
+                val initials = friend.displayName.trim().split(" ")
+                    .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+                    .take(2).joinToString("")
+                    .ifEmpty { friend.displayName.take(1).uppercase() }
+                markers.add(FriendMapMarker(friend.displayName, initials, centroid))
+            }
+            markers
+        }
+
+    private fun zoneCentroid(element: kotlinx.serialization.json.JsonElement): GmsLatLng? {
+        return try {
+            val array = element.jsonArray
+            if (array.isEmpty()) return null
+            var sumLat = 0.0; var sumLng = 0.0; var count = 0
+            for (item in array) {
+                val obj = item.jsonObject
+                val lat = obj["lat"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                    ?: obj["latitude"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                val lng = obj["lng"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                    ?: obj["longitude"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                if (lat != null && lng != null) { sumLat += lat; sumLng += lng; count++ }
+            }
+            if (count == 0) null else GmsLatLng(sumLat / count, sumLng / count)
+        } catch (_: Exception) { null }
     }
 
     suspend fun getRouteStopLandmarks(routeId: Long): Result<List<Pair<Long, String>>> =

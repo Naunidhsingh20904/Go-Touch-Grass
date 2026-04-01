@@ -165,6 +165,15 @@ data class VisitSessionRow(
 )
 
 @Serializable
+data class StreakUpsert(
+    @SerialName("user_id") val userId: Long,
+    val type: String,
+    @SerialName("current_count") val currentCount: Int,
+    @SerialName("best_count") val bestCount: Int,
+    @SerialName("last_counted_date") val lastCountedDate: String
+)
+
+@Serializable
 data class VisitSessionInsert(
     @SerialName("user_id") val userId: Long,
     @SerialName("zone_id") val zoneId: Long? = null,

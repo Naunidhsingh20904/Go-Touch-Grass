@@ -151,6 +151,11 @@ fun MapScreen(
 
     // ── Trip UI state ─────────────────────────────────────────────────────────
 
+    // After all Supabase writes complete, refresh header stats
+    LaunchedEffect(tripViewModel) {
+        tripViewModel?.onTripSaved = { viewModel?.refresh() }
+    }
+
     // Forward location updates into TripViewModel
     LaunchedEffect(effectiveUserLocation) {
         val loc = effectiveUserLocation ?: return@LaunchedEffect
@@ -468,6 +473,16 @@ fun MapScreen(
                 )
             }
 
+            // Friend approximate location markers
+            viewModel?.friendLocations?.forEach { friend ->
+                Marker(
+                    state = MarkerState(position = friend.latLng),
+                    title = friend.displayName,
+                    snippet = "Approx. location",
+                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_VIOLET)
+                )
+            }
+
             // Route stop markers when a route trip is active
             tripViewModel?.routeStopMarkers?.forEachIndexed { idx, stop ->
                 val isCaptured = capturedPlaceIds.contains(stop.placeId)
@@ -486,11 +501,13 @@ fun MapScreen(
         // --- Overlay: Header (compact centered pill) ---
         viewModel?.let { vm ->
             val header = vm.headerStats
+            val streak = maxOf(header.streakDays, tripViewModel?.streakDays ?: 0)
             MapHeaderOverlay(
                 level = header.level,
                 currentXp = header.currentXp,
                 maxXp = header.maxXp,
                 xpToNext = header.xpToNextLevel,
+                streakDays = streak,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(
@@ -584,6 +601,19 @@ fun MapScreen(
                 onClose = { selectedPoi = null })
         }
 
+        // --- Trip Celebration Overlay (casino-style XP reveal) ---
+        tripViewModel?.let { tvm ->
+            if (tvm.showCelebration) {
+                val summary = tvm.lastSummary
+                if (summary != null) {
+                    TripCelebrationOverlay(
+                        summary = summary,
+                        onDismiss = { tvm.dismissCelebration() }
+                    )
+                }
+            }
+        }
+
         // --- Trip Summary Dialog ---
         tripViewModel?.let { tvm ->
             if (tvm.showSummary) {
@@ -597,6 +627,16 @@ fun MapScreen(
                         }
                     )
                 }
+            }
+        }
+
+        // --- Level-Up Dialog ---
+        tripViewModel?.let { tvm ->
+            if (tvm.levelUp) {
+                LevelUpDialog(
+                    newLevel = tvm.newLevel,
+                    onDismiss = { tvm.dismissLevelUp(); viewModel?.refresh() }
+                )
             }
         }
 
@@ -664,7 +704,12 @@ private fun LocationRequiredOverlay(
 
 @Composable
 private fun MapHeaderOverlay(
-    level: Int, currentXp: Int, maxXp: Int, xpToNext: Int, modifier: Modifier = Modifier
+    level: Int,
+    currentXp: Int,
+    maxXp: Int,
+    xpToNext: Int,
+    streakDays: Int = 0,
+    modifier: Modifier = Modifier
 ) {
     val cardSurface = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
     val border = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
@@ -696,9 +741,7 @@ private fun MapHeaderOverlay(
                             .clip(RoundedCornerShape(10.dp))
                             .background(accent), contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = level.toString(), fontSize = 10.sp, color = onAccent
-                        )
+                        Text(text = level.toString(), fontSize = 10.sp, color = onAccent)
                     }
 
                     Spacer(Modifier.width(8.dp))
@@ -708,6 +751,21 @@ private fun MapHeaderOverlay(
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
                         color = onSurface
                     )
+                }
+
+                // Streak flame badge
+                if (streakDays > 0) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(text = "🔥", fontSize = 13.sp)
+                        Text(
+                            text = "$streakDays",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFFE8B931)
+                        )
+                    }
                 }
             }
 

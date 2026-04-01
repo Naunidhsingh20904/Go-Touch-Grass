@@ -155,7 +155,7 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                     profileRepository = profileRepository,
                     mapRepository = mapRepository
                 )
-                MapViewModel(model = model)
+                MapViewModel(model = model, repository = repository, currentUserId = userId)
             }
         }
         val tripViewModel = remember(currentUserId) {
@@ -205,6 +205,15 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
             authService.getCurrentUser().onSuccess { user ->
                 isAuthenticated = user != null
                 currentUserId = user?.id
+            }
+        }
+
+        // Refresh data every time the user navigates to Stats or Profile
+        LaunchedEffect(currentDestination) {
+            when (currentDestination) {
+                AppDestinations.STATS -> statsViewModel.refresh()
+                AppDestinations.PROFILE -> profileViewModel?.refresh()
+                else -> Unit
             }
         }
 
