@@ -374,13 +374,16 @@ open class GoTouchGrassRepository(
     suspend fun getLeaderboard(currentUserId: String): Result<List<LeaderboardData>> = runCatching {
         val topUsers = dataSource.fetchLeaderboardUsers(20)
         val currentUserRow = dataSource.getUserRowByAuthId(currentUserId)
+        
+        val XP_PER_LEVEL = 1000
 
         val entries = topUsers.mapIndexed { index, userRow ->
             val isCurrentUser = userRow.authUserId == currentUserId
+            val derivedLevel = (userRow.xpTotal / XP_PER_LEVEL) + 1
             LeaderboardData(
                 rank = (index + 1).toString(),
                 name = if (isCurrentUser) "You" else userRow.displayName,
-                level = "Level ${userRow.level}",
+                level = "Level $derivedLevel",
                 xp = "%,d XP".format(userRow.xpTotal),
                 isGoldRank = index == 0,
                 isCurrentUser = isCurrentUser
@@ -388,11 +391,12 @@ open class GoTouchGrassRepository(
         }.toMutableList()
 
         if (currentUserRow != null && topUsers.none { it.authUserId == currentUserId }) {
+            val derivedLevel = (currentUserRow.xpTotal / XP_PER_LEVEL) + 1
             entries.add(
                 LeaderboardData(
                     rank = "...",
                     name = "You",
-                    level = "Level ${currentUserRow.level}",
+                    level = "Level $derivedLevel",
                     xp = "%,d XP".format(currentUserRow.xpTotal),
                     isGoldRank = false,
                     isCurrentUser = true

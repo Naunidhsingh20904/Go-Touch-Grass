@@ -30,5 +30,8 @@ class ProfileModel(
 
     suspend fun getWeeklySummary(): WeeklySummary? =
         repository.getWeeklySummary(currentUserId).getOrNull()
+
+    suspend fun getFriends(): List<User> =
+        repository.getFriends(currentUserId).getOrNull() ?: emptyList()
 }
 
