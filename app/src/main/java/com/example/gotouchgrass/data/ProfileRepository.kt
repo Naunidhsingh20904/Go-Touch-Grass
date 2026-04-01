@@ -76,7 +76,6 @@ class FakeProfileRepository : ProfileRepository {
         val user = FakeData.users.find { it.id == userId }
         LifetimeStats(
             totalXp = user?.xpTotal ?: 0,
-            coinsEarned = 0,
             totalDistanceKm = 0f,
             citiesExplored = 0
         )

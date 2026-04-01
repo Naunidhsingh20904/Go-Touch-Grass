@@ -190,8 +190,7 @@ data class Capture(
     val capturedAtIso: String,
     val proofType: CaptureProofType,
     val rarityAtTime: RarityScore,
-    val xpAwarded: Int,
-    val coinsAwarded: Int
+    val xpAwarded: Int
 )
 
 data class ZoneOwnership(
@@ -291,8 +290,7 @@ data class Challenge(
     val challengeType: ChallengeType,
     val timeWindow: ChallengeTimeWindow,
     val ruleConfigJson: String,
-    val rewardXP: Int,
-    val rewardCoins: Int
+    val rewardXP: Int
 )
 
 data class ChallengeProgress(
@@ -450,7 +448,7 @@ data class StreakData(
 )
 
 data class LifetimeStats(
-    val totalXp: Int, val coinsEarned: Int, val totalDistanceKm: Float, val citiesExplored: Int
+    val totalXp: Int, val totalDistanceKm: Float, val citiesExplored: Int
 )
 
 data class LeaderboardData(

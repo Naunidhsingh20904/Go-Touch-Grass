@@ -310,11 +310,10 @@ open class GoTouchGrassRepository(
 
     suspend fun getLifetimeStats(userId: String): Result<LifetimeStats> = runCatching {
         val user = dataSource.getUserById(userId).getOrThrow() ?: return@runCatching LifetimeStats(
-            totalXp = 0, coinsEarned = 0, totalDistanceKm = 0f, citiesExplored = 0
+            totalXp = 0, totalDistanceKm = 0f, citiesExplored = 0
         )
         LifetimeStats(
             totalXp = user.xpTotal,
-            coinsEarned = 0,        // TODO: fetch from coins table when available
             totalDistanceKm = 0f,   // TODO: compute from visit_session table when available
             citiesExplored = 0      // TODO: compute from city_completion table when available
         )
