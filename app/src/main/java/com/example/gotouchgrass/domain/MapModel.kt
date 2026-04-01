@@ -35,7 +35,6 @@ class MapModel(
         val weekly = profileRepository.getWeeklySummary(currentUserId).getOrNull()
 
         val totalXp = user?.xpTotal ?: 0
-        // derive level from XP
         val level = (totalXp / XP_PER_LEVEL) + 1
         val previousLevelsXp = (level - 1) * XP_PER_LEVEL
         val currentXp = (totalXp - previousLevelsXp).coerceIn(0, XP_PER_LEVEL - 1)

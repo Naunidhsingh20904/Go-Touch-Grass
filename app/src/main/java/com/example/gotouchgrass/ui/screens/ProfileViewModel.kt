@@ -123,12 +123,10 @@ class ProfileViewModel(
         username = user.username
         displayName = user.displayName
         avatarKey = user.avatarUrl
-        
-        val derivedLevel = (user.xpTotal / XP_PER_LEVEL) + 1
-        level = derivedLevel
         maxXp = XP_PER_LEVEL
 
         val totalXp = user.xpTotal
+        level = (totalXp / XP_PER_LEVEL) + 1
         val previousLevelsXp = (level - 1) * XP_PER_LEVEL
         currentXp = (totalXp - previousLevelsXp).coerceIn(0, XP_PER_LEVEL)
 

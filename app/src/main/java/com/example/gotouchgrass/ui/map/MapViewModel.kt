@@ -5,14 +5,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.gotouchgrass.data.GoTouchGrassRepository
 import com.example.gotouchgrass.domain.ExploreRouteItem
+import com.example.gotouchgrass.domain.FriendMapMarker
 import com.example.gotouchgrass.domain.MapHeaderStats
 import com.example.gotouchgrass.domain.MapModel
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.launch
 
 class MapViewModel(
-    private val model: MapModel
+    private val model: MapModel,
+    private val repository: GoTouchGrassRepository? = null,
+    private val currentUserId: String? = null
 ) : ViewModel() {
 
     var headerStats by mutableStateOf(
@@ -47,8 +51,12 @@ class MapViewModel(
     var savedCameraZoom by mutableStateOf<Float?>(null)
         private set
 
+    var friendLocations by mutableStateOf<List<FriendMapMarker>>(emptyList())
+        private set
+
     init {
         refresh()
+        loadFriendLocations()
     }
 
     fun refresh() {
@@ -75,4 +83,17 @@ class MapViewModel(
         savedCameraTarget = target
         savedCameraZoom = zoom
     }
+
+    fun loadFriendLocations() {
+        val repo = repository ?: return
+        val uid = currentUserId ?: return
+        viewModelScope.launch {
+            repo.getFriendsApproxLocations(uid).onSuccess { markers ->
+                friendLocations = markers
+            }
+        }
+    }
+
+    // Callback set by MapScreen so the NearbyAreasOverlay "Start" button can kick off a route trip
+    var onStartRoute: ((com.example.gotouchgrass.domain.ExploreRouteItem) -> Unit)? = null
 }

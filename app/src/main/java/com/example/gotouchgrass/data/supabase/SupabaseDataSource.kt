@@ -99,11 +99,23 @@ open class SupabaseDataSource(
 
     suspend fun updateUserXpTotal(userId: Long, newXpTotal: Long) {
         supabaseClient.from(TABLE_USERS).update(UserXpUpdate(newXpTotal)) {
-            filter {
-                eq("id", userId)
-            }
+            filter { eq("id", userId) }
         }
     }
+
+    suspend fun updateUserLevel(userId: Long, newLevel: Int) {
+        supabaseClient.from(TABLE_USERS).update({ this["level"] = newLevel }) {
+            filter { eq("id", userId) }
+        }
+    }
+
+    suspend fun fetchWeeklyCaptures(userId: Long, weekStartIso: String): List<CaptureRow> =
+        supabaseClient.from(TABLE_CAPTURES).select {
+            filter {
+                eq("user_id", userId)
+                gte("created_at", weekStartIso)
+            }
+        }.decodeList()
 
     suspend fun insertSearchActivity(row: SearchActivityInsert) {
         supabaseClient.from(TABLE_SEARCH_ACTIVITY).insert(row)
@@ -215,6 +227,39 @@ open class SupabaseDataSource(
             gte("started_at", weekStartIso)
         }
     }.decodeList()
+
+    suspend fun insertVisitSession(row: VisitSessionInsert) {
+        supabaseClient.from(TABLE_VISIT_SESSIONS).insert(row)
+    }
+
+    suspend fun upsertStreak(row: StreakUpsert) {
+        supabaseClient.from(TABLE_STREAKS).upsert(row) { onConflict = "user_id,type" }
+    }
+
+    suspend fun fetchAllZones(): List<ZoneRow> =
+        supabaseClient.from(TABLE_ZONES).select().decodeList<ZoneRow>()
+
+    suspend fun fetchLatestZonedVisitSessionByUserId(userId: Long): VisitSessionRow? =
+        supabaseClient.from(TABLE_VISIT_SESSIONS).select {
+            filter {
+                eq("user_id", userId)
+                neq("zone_id", "null")
+            }
+            order("started_at", Order.DESCENDING)
+            limit(1)
+        }.decodeList<VisitSessionRow>().firstOrNull()
+
+    suspend fun fetchZoneById(zoneId: Long): ZoneRow? =
+        supabaseClient.from(TABLE_ZONES).select {
+            filter { eq("id", zoneId) }
+            limit(1)
+        }.decodeList<ZoneRow>().firstOrNull()
+
+    suspend fun fetchRouteStopsByRouteId(routeId: Long): List<RouteStopRow> =
+        supabaseClient.from(TABLE_ROUTE_STOPS).select {
+            filter { eq("route_id", routeId) }
+            order("order_index", Order.ASCENDING)
+        }.decodeList()
 
     // friendship management
 
