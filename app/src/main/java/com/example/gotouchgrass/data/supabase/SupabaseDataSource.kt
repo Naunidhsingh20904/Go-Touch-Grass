@@ -168,6 +168,12 @@ open class SupabaseDataSource(
             filter { eq("user_id", userId) }
         }.decodeList<CaptureRow>().mapNotNull { it.landmarkId }.distinct()
 
+    suspend fun fetchCapturesByUser(userId: Long): List<CaptureRow> =
+        supabaseClient.from(TABLE_CAPTURES).select {
+            filter { eq("user_id", userId) }
+            order("captured_at", Order.DESCENDING)
+        }.decodeList()
+
     suspend fun insertCapture(row: CaptureInsert) {
         supabaseClient.from(TABLE_CAPTURES).insert(row)
     }

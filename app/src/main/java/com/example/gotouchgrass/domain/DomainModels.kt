@@ -193,6 +193,13 @@ data class Capture(
     val xpAwarded: Int
 )
 
+data class CollectedLandmark(
+    val landmarkId: Long,
+    val placeId: String,
+    val category: String,
+    val capturedAtIso: String
+)
+
 data class ZoneOwnership(
     val zoneId: String,
     val ownerUserId: String,

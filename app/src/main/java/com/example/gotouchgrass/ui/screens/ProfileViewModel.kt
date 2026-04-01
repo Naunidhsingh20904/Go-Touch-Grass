@@ -94,11 +94,13 @@ class ProfileViewModel(
                 val lifetimeStats = model.getLifetimeStats()
                 val streakData = model.getStreakData()
                 val weeklySummary = model.getWeeklySummary()
+                val friends = model.getFriends()
 
                 applyUser(user)
                 applyStreak(streakData)
                 applyLifetimeStats(lifetimeStats)
                 applyWeeklySummary(weeklySummary)
+                applyFriends(friends)
             }.onFailure { error ->
                 errorMessage = error.message ?: "Failed to load profile data"
             }
@@ -121,7 +123,9 @@ class ProfileViewModel(
         username = user.username
         displayName = user.displayName
         avatarKey = user.avatarUrl
-        level = user.level
+        
+        val derivedLevel = (user.xpTotal / XP_PER_LEVEL) + 1
+        level = derivedLevel
         maxXp = XP_PER_LEVEL
 
         val totalXp = user.xpTotal
@@ -145,6 +149,13 @@ class ProfileViewModel(
         if (summary == null) return
         zonesVisited = summary.zonesVisited.toString()
         timeExploredHours = summary.timeOutside
+    }
+
+    private fun applyFriends(friends: List<User>) {
+        // extract the first character of each friend's display name as their initial
+        friendInitials = friends.mapNotNull { friend ->
+            friend.displayName.firstOrNull()?.toString()?.uppercase()
+        }
     }
 
     private fun formatJoined(createdAtIso: String): String {

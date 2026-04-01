@@ -43,7 +43,8 @@ import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
 @Composable
 fun StatsScreen(
     modifier: Modifier = Modifier,
-    viewModel: StatsViewModel = viewModel()
+    viewModel: StatsViewModel = viewModel(),
+    onViewCollectedOnMap: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -55,7 +56,10 @@ fun StatsScreen(
         Topbar()
         WeeklySummaryCard(viewModel)
         CurrentStreak(viewModel)
-        LifetimeStatsCard(viewModel)
+        LifetimeStatsCard(
+            viewModel = viewModel,
+            onViewCollectedOnMap = onViewCollectedOnMap
+        )
         GlobalLeaderboard(viewModel)
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingLg))
     }
@@ -316,6 +320,7 @@ fun CurrentStreak(
 @Composable
 fun LifetimeStatsCard(
     viewModel: StatsViewModel,
+    onViewCollectedOnMap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -373,6 +378,46 @@ fun LifetimeStatsCard(
                             fontWeight = FontWeight.Bold
                         )
                     }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Landmarks Captured",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray
+                        )
+                        Text(
+                            text = viewModel.totalLandmarksCaptured.toString(),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onViewCollectedOnMap,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("View Landmarks On Map")
                 }
             }
 
