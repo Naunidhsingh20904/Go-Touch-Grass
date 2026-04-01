@@ -156,6 +156,10 @@ open class SupabaseDataSource(
         }.decodeList<LandmarkRow>()
     }
 
+    suspend fun insertLandmark(row: LandmarkInsert) {
+        supabaseClient.from(TABLE_LANDMARKS).insert(row)
+    }
+
     suspend fun hasCaptureForUserAndLandmark(userId: Long, landmarkId: Long): Boolean =
         supabaseClient.from(TABLE_CAPTURES).select {
             filter {

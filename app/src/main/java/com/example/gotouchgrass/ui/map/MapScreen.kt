@@ -266,6 +266,8 @@ fun MapScreen(
     var mappedInDbForSelectedPoi by remember { mutableStateOf<Boolean?>(null) }
     var mappedCategoryForSelectedPoi by remember { mutableStateOf<String?>(null) }
     var isResolvingMapping by remember { mutableStateOf(false) }
+    var isMappingLandmark by remember { mutableStateOf(false) }
+    var mappingLandmarkError by remember { mutableStateOf<String?>(null) }
     var isResolvingPoiInfo by remember { mutableStateOf(false) }
     var selectedPoiPhoto by remember { mutableStateOf<Bitmap?>(null) }
     var captureTimestamp by remember { mutableStateOf<String?>(null) }
@@ -361,6 +363,8 @@ fun MapScreen(
                     mappedInDbForSelectedPoi = null
                     mappedCategoryForSelectedPoi = null
                     isResolvingMapping = repository != null
+                    isMappingLandmark = false
+                    mappingLandmarkError = null
                     selectedPoiPhoto = null
                     isResolvingPoiInfo = true
                     captureTimestamp = null
@@ -422,6 +426,8 @@ fun MapScreen(
             mappedInDbForSelectedPoi = null
             mappedCategoryForSelectedPoi = null
             isResolvingMapping = false
+            isMappingLandmark = false
+            mappingLandmarkError = null
             return@LaunchedEffect
         }
 
@@ -429,14 +435,16 @@ fun MapScreen(
             mappedInDbForSelectedPoi = null
             mappedCategoryForSelectedPoi = null
             isResolvingMapping = false
+            isMappingLandmark = false
+            mappingLandmarkError = null
             return@LaunchedEffect
         }
 
         isResolvingMapping = true
         // is this poi mapped
-        val mappingResult = repository.getMappedLandmarkCategoryForPlaceId(poi.placeId)
-        val category = mappingResult.getOrNull()
-        val error = mappingResult.exceptionOrNull()
+        val mappedResult = repository.isPlaceMappedForCapture(poi.placeId)
+        val isMapped = mappedResult.getOrNull()
+        val error = mappedResult.exceptionOrNull()
 
         if (error is CancellationException) {
             mappedInDbForSelectedPoi = null
@@ -445,9 +453,17 @@ fun MapScreen(
             return@LaunchedEffect
         }
 
-        mappedCategoryForSelectedPoi = if (mappingResult.isSuccess) category else null
-        mappedInDbForSelectedPoi = mappingResult.isSuccess && category != null
+        if (mappedResult.isSuccess && isMapped == true) {
+            mappedCategoryForSelectedPoi = repository.getMappedLandmarkCategoryForPlaceId(poi.placeId).getOrNull()
+            mappedInDbForSelectedPoi = true
+        } else {
+            mappedCategoryForSelectedPoi = null
+            mappedInDbForSelectedPoi = false
+        }
         isResolvingMapping = false
+        if (mappedInDbForSelectedPoi == true) {
+            mappingLandmarkError = null
+        }
     }
 
     LaunchedEffect(selectedPoi?.placeId, repository, currentUserId) {
@@ -598,6 +614,8 @@ fun MapScreen(
                 mappedInDbForSelectedPoi = null
                 mappedCategoryForSelectedPoi = null
                 isResolvingMapping = repository != null
+                isMappingLandmark = false
+                mappingLandmarkError = null
                 selectedPoiPhoto = null
                 isResolvingPoiInfo = placesClient != null
                 captureTimestamp = null
@@ -799,10 +817,34 @@ fun MapScreen(
                 isResolvingPoiInfo = isResolvingPoiInfo,
                 isMapped = mappedInDbForSelectedPoi,
                 isResolvingMapping = isResolvingMapping,
+                isMappingLandmark = isMappingLandmark,
                 isNearby = isNearby,
                 distanceMeters = distanceMeters,
                 isCaptured = capturedPlaceIds.contains(poi.placeId),
                 captureTimestamp = captureTimestamp,
+                mappingErrorMessage = mappingLandmarkError,
+                onMapLandmark = {
+                    if (repository == null || currentUserId == null || isMappingLandmark) return@CapturePoiPopup
+                    val selectedPlaceIdForRequest = poi.placeId
+                    isMappingLandmark = true
+                    mappingLandmarkError = null
+                    coroutineScope.launch {
+                        val mappingResult =
+                            repository.ensureLandmarkMappedForCapture(currentUserId, selectedPlaceIdForRequest)
+                        if (selectedPoi?.placeId == selectedPlaceIdForRequest) {
+                            if (mappingResult.isSuccess) {
+                                mappedCategoryForSelectedPoi = mappingResult.getOrNull()
+                                mappedInDbForSelectedPoi = true
+                                mappingLandmarkError = null
+                            } else {
+                                mappingLandmarkError =
+                                    mappingResult.exceptionOrNull()?.message
+                                        ?: "Could not map this landmark right now. Try again."
+                            }
+                        }
+                        isMappingLandmark = false
+                    }
+                },
                 onCapture = {
                     val alreadyCaptured = capturedPlaceIds.contains(poi.placeId)
                     if (mappedInDbForSelectedPoi != true || alreadyCaptured) return@CapturePoiPopup
@@ -1264,10 +1306,13 @@ private fun CapturePoiPopup(
     isResolvingPoiInfo: Boolean,
     isMapped: Boolean?,
     isResolvingMapping: Boolean,
+    isMappingLandmark: Boolean,
     isNearby: Boolean,
     distanceMeters: Float?,
     isCaptured: Boolean,
     captureTimestamp: String?,
+    mappingErrorMessage: String?,
+    onMapLandmark: () -> Unit,
     onCapture: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -1303,12 +1348,20 @@ private fun CapturePoiPopup(
                 Text(
                     text = when {
                         isResolvingPoiInfo || isResolvingMapping || isMapped == null -> "Loading location..."
-                        !isMapped -> "Unmapped landmark. Capture unavailable."
+                        !isMapped -> "You are the first explorer here! Map this landmark once, then capture it."
                         distanceMeters == null -> "Location unavailable."
                         isNearby -> "Nearby (${distanceMeters.toInt()}m)"
                         else -> "Move closer (${distanceMeters.toInt()}m)"
                     }, style = MaterialTheme.typography.bodySmall
                 )
+
+                if (!mappingErrorMessage.isNullOrBlank()) {
+                    Text(
+                        text = mappingErrorMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
 
                 // Show capture timestamp if already captured
                 if (isCaptured && captureTimestamp != null) {
@@ -1329,15 +1382,27 @@ private fun CapturePoiPopup(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
                 ) {
+                    val shouldShowMapLandmarkAction = isMapped == false
                     Button(
-                        onClick = onCapture,
-                        enabled = !isResolvingMapping && isMapped == true && isNearby && !isCaptured,
+                        onClick = {
+                            if (shouldShowMapLandmarkAction) {
+                                onMapLandmark()
+                            } else {
+                                onCapture()
+                            }
+                        },
+                        enabled = if (shouldShowMapLandmarkAction) {
+                            !isResolvingPoiInfo && !isResolvingMapping && !isMappingLandmark
+                        } else {
+                            !isResolvingMapping && !isMappingLandmark && isMapped == true && isNearby && !isCaptured
+                        },
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
                             when {
                                 isResolvingPoiInfo || isResolvingMapping || isMapped == null -> "Loading"
-                                !isMapped -> "Unavailable"
+                                isMappingLandmark -> "Mapping..."
+                                !isMapped -> "Map Landmark"
                                 isCaptured -> "Captured"
                                 isNearby -> "Capture"
                                 else -> "Not Nearby"
