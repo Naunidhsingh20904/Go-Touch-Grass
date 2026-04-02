@@ -53,7 +53,7 @@ fun CaptureScreen(
     repository: GoTouchGrassRepository? = null,
     currentUserId: String? = null,
     onClose: () -> Unit = {},
-    onCaptured: (String) -> Unit = {},
+    onCaptured: (String, List<String>) -> Unit = { _, _ -> },
     viewModel: CaptureViewModel = remember(placeId, placeName, categoryName) {
         CaptureViewModel(
             seededPlaceName = placeName, seededCategoryName = categoryName
@@ -84,11 +84,11 @@ fun CaptureScreen(
                 val result = if (repository != null && !currentUserId.isNullOrBlank()) {
                     repository.recordCaptureByPlaceId(currentUserId, placeId)
                 } else {
-                    Result.success(Unit)
+                    Result.success(emptyList())
                 }
 
                 if (result.isSuccess) {
-                    onCaptured(placeId)
+                    onCaptured(placeId, result.getOrNull() ?: emptyList())
                 } else {
                     capturedComplete = false
                     saveCaptureError =

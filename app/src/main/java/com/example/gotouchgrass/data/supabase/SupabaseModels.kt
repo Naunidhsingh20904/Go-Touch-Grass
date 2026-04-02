@@ -72,6 +72,7 @@ data class ChallengeRow(
 data class ChallengeProgressRow(
     @SerialName("user_id") val userId: Long,
     @SerialName("challenge_id") val challengeId: Long,
+    @SerialName("period_start_iso") val periodStartIso: String? = null,
     @SerialName("progress_value") val progressValue: Double,
     @SerialName("completed_at") val completedAt: String? = null
 )
@@ -80,6 +81,7 @@ data class ChallengeProgressRow(
 data class ChallengeXpAwardInsert(
     @SerialName("user_id") val userId: Long,
     @SerialName("challenge_id") val challengeId: Long,
+    @SerialName("period_start_iso") val periodStartIso: String? = null,
     @SerialName("awarded_xp") val awardedXp: Long
 )
 

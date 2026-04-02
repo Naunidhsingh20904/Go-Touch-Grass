@@ -31,7 +31,7 @@ class FakeGoTouchGrassRepository : ExploreRepository {
         challenges.map { ch ->
             val progress = progressMap[ch.id]
             val progressValue = progress?.progressValue ?: 0.0
-            val targetValue = extractTargetValue(ch.ruleConfigJson) ?: 1.0
+            val targetValue = extractChallengeTargetValue(ch.ruleConfigJson) ?: 1.0
             val progressFraction = (progressValue / targetValue).coerceIn(0.0, 1.0).toFloat()
             val challengeType = runCatching { ChallengeType.valueOf(ch.challengeType.name) }
                 .getOrDefault(ChallengeType.VISIT)
@@ -72,23 +72,28 @@ class FakeGoTouchGrassRepository : ExploreRepository {
         }
     }
 
-    private fun extractTargetValue(ruleConfigJson: String): Double? {
+    private fun formatValue(value: Double): String {
+        return if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
+    }
+
+    private fun extractChallengeTargetValue(ruleConfigJson: String): Double? {
         return try {
             val json = JSONObject(ruleConfigJson)
-            val targetKeys = listOf("uniqueZones", "distanceKm", "timeMinutes")
+            val targetKeys = listOf("uniqueZones", "distanceKm", "timeMinutes", "captureCount", "tripCount")
             for (key in targetKeys) {
                 if (!json.has(key)) continue
-                val value = json.optDouble(key, Double.NaN)
-                if (value.isFinite() && value > 0.0) return value
+                val rawValue = json.opt(key)
+                val value = when (rawValue) {
+                    is Number -> rawValue.toDouble()
+                    is String -> rawValue.toDoubleOrNull()
+                    else -> null
+                }
+                if (value != null && value > 0.0) return value
             }
             null
         } catch (_: Exception) {
             null
         }
-    }
-
-    private fun formatValue(value: Double): String {
-        return if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
     }
 
     private fun RouteTheme.toRouteDescription(): String {

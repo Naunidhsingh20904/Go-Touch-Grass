@@ -74,6 +74,9 @@ class TripViewModel(
     var streakDays by mutableIntStateOf(0)
         private set
 
+    var pendingChallengeSnackbarMessage by mutableStateOf<String?>(null)
+        private set
+
     // Set by MapScreen so it can refresh header + stats after Supabase writes complete
     var onTripSaved: (() -> Unit)? = null
 
@@ -206,7 +209,12 @@ class TripViewModel(
                     endedAtIso = endIso,
                     durationSec = durationSec,
                     dominantZoneId = dominantZoneId
-                )
+                ).onSuccess { completedTitles ->
+                    if (completedTitles.isNotEmpty()) {
+                        pendingChallengeSnackbarMessage =
+                            "Challenge completed: ${completedTitles.joinToString(", ")}" 
+                    }
+                }
                 // Only add the walk-distance portion of XP here;
                 // capture XP is already saved per-capture in recordCaptureByPlaceId
                 val distanceXp = (distanceSnapshot / 10f).toInt()
@@ -250,6 +258,10 @@ class TripViewModel(
 
     fun dismissLevelUp() {
         levelUp = false
+    }
+
+    fun consumeChallengeSnackbarMessage() {
+        pendingChallengeSnackbarMessage = null
     }
 
     fun updateRouteStopMarkers(markers: List<RouteStopMapMarker>) {
