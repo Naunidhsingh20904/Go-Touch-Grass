@@ -1,28 +1,27 @@
 package com.example.gotouchgrass.data
 
 import com.example.gotouchgrass.data.supabase.ChallengeProgressRow
-import com.example.gotouchgrass.data.supabase.ChallengeRow
 import com.example.gotouchgrass.data.supabase.FriendRequestRow
 import com.example.gotouchgrass.data.supabase.LandmarkInsert
 import com.example.gotouchgrass.data.supabase.RouteRow
 import com.example.gotouchgrass.data.supabase.SearchActivityInsert
+import com.example.gotouchgrass.data.supabase.StreakUpsert
 import com.example.gotouchgrass.data.supabase.SupabaseDataSource
 import com.example.gotouchgrass.data.supabase.UserSettingsUpsert
-import com.example.gotouchgrass.data.supabase.StreakUpsert
 import com.example.gotouchgrass.data.supabase.VisitSessionInsert
-import com.example.gotouchgrass.domain.FriendMapMarker
-import com.example.gotouchgrass.domain.TripZone
 import com.example.gotouchgrass.domain.ChallengeTimeWindow
 import com.example.gotouchgrass.domain.ChallengeType
 import com.example.gotouchgrass.domain.CollectedLandmark
 import com.example.gotouchgrass.domain.ExploreChallengeItem
 import com.example.gotouchgrass.domain.ExploreRouteItem
+import com.example.gotouchgrass.domain.FriendMapMarker
 import com.example.gotouchgrass.domain.LatLng
 import com.example.gotouchgrass.domain.LeaderboardData
 import com.example.gotouchgrass.domain.LifetimeStats
 import com.example.gotouchgrass.domain.RouteDifficulty
 import com.example.gotouchgrass.domain.RouteTheme
 import com.example.gotouchgrass.domain.StreakData
+import com.example.gotouchgrass.domain.TripZone
 import com.example.gotouchgrass.domain.User
 import com.example.gotouchgrass.domain.UserPreferences
 import com.example.gotouchgrass.domain.WeeklySummary
@@ -31,13 +30,14 @@ import com.example.gotouchgrass.domain.rarityScoreForLandmarkCategoryName
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.json.JSONObject
-import com.google.android.gms.maps.model.LatLng as GmsLatLng
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
+import com.google.android.gms.maps.model.LatLng as GmsLatLng
 
 open class GoTouchGrassRepository(
     private val dataSource: SupabaseDataSource
@@ -45,6 +45,56 @@ open class GoTouchGrassRepository(
     enum class SearchEventSource {
         RESULT, RECENT, TRENDING
     }
+
+    // add hard coded challenges for now instead of storing in and pulling from the db
+    private data class HardcodedChallengeDefinition(
+        val key: String,
+        val title: String,
+        val description: String,
+        val challengeType: ChallengeType,
+        val timeWindow: ChallengeTimeWindow,
+        val targetValue: Double,
+        val rewardXp: Int
+    )
+
+    private val hardcodedChallenges = listOf(
+        HardcodedChallengeDefinition(
+            key = "daily_capture_1",
+            title = "Daily Scout",
+            description = "Capture 1 new location today.",
+            challengeType = ChallengeType.VISIT,
+            timeWindow = ChallengeTimeWindow.DAILY,
+            targetValue = 1.0,
+            rewardXp = 100
+        ),
+        HardcodedChallengeDefinition(
+            key = "weekly_trip_1",
+            title = "Weekly Walker",
+            description = "Complete 1 trip this week.",
+            challengeType = ChallengeType.EXPLORE,
+            timeWindow = ChallengeTimeWindow.WEEKLY,
+            targetValue = 1.0,
+            rewardXp = 200
+        ),
+        HardcodedChallengeDefinition(
+            key = "weekly_time_60",
+            title = "Weekly Outdoors",
+            description = "Spend 60 minutes outdoors this week.",
+            challengeType = ChallengeType.TIME,
+            timeWindow = ChallengeTimeWindow.WEEKLY,
+            targetValue = 60.0,
+            rewardXp = 250
+        ),
+        HardcodedChallengeDefinition(
+            key = "weekly_capture_5",
+            title = "Weekly Collector",
+            description = "Capture 5 new locations this week.",
+            challengeType = ChallengeType.VISIT,
+            timeWindow = ChallengeTimeWindow.WEEKLY,
+            targetValue = 5.0,
+            rewardXp = 300
+        )
+    )
 
     // User
     suspend fun getUser(userId: String): Result<User?> = dataSource.getUserById(userId)
@@ -72,13 +122,53 @@ open class GoTouchGrassRepository(
     override suspend fun getChallenges(
         userId: String, timeWindow: ChallengeTimeWindow
     ): Result<List<ExploreChallengeItem>> = runCatching {
-        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching emptyList()
+        val userRow = runCatching { dataSource.getUserRowByAuthId(userId) }.getOrNull()
+        val definitions = hardcodedChallenges.filter { it.timeWindow == timeWindow }
+        val idByLookupKey = runCatching { resolveHardcodedChallengeIds() }.getOrDefault(emptyMap())
+        val currentPeriodStartIso = currentChallengePeriodStartIso(timeWindow)
+        val progressMap = if (userRow == null) {
+            emptyMap()
+        } else {
+            runCatching {
+                dataSource.fetchChallengeProgress(userRow.id)
+                    .filter { it.periodStartIso == currentPeriodStartIso }
+                    .associateBy { it.challengeId }
+            }.getOrDefault(emptyMap())
+        }
+        val fallbackVisitProgress = if (userRow == null) {
+            0.0
+        } else {
+            runCatching {
+                countCapturesInPeriod(userRow.id, timeWindow).toDouble()
+            }.getOrDefault(0.0)
+        }
 
-        val challenges = dataSource.fetchChallenges(timeWindow.name)
-        val progressMap =
-            dataSource.fetchChallengeProgress(userRow.id).associateBy { it.challengeId }
+        definitions.map { definition ->
+            val lookupKey = challengeLookupKey(definition.timeWindow, definition.title)
+            val challengeId = idByLookupKey[lookupKey]
+            val storedProgressValue = challengeId?.let { progressMap[it]?.progressValue } ?: 0.0
+            val progressValue = if (
+                definition.challengeType == ChallengeType.VISIT &&
+                storedProgressValue <= 0.0
+            ) {
+                fallbackVisitProgress
+            } else {
+                storedProgressValue
+            }
+            val displayProgressValue = progressValue.coerceIn(0.0, definition.targetValue)
+            val progressFraction =
+                (displayProgressValue / definition.targetValue).coerceIn(0.0, 1.0).toFloat()
 
-        challenges.map { ch -> ch.toExploreChallengeItem(progressMap[ch.id]) }
+            ExploreChallengeItem(
+                id = challengeId?.toString() ?: "hardcoded_${definition.key}",
+                title = definition.title,
+                description = definition.description,
+                rewardXp = definition.rewardXp,
+                progress = "${formatValue(displayProgressValue)} / ${formatValue(definition.targetValue)}",
+                progressFraction = progressFraction,
+                challengeType = definition.challengeType
+            )
+        }
     }
 
     suspend fun getRecentSearches(userId: String, limit: Int = 8): Result<List<String>> =
@@ -125,20 +215,20 @@ open class GoTouchGrassRepository(
         )
     }
 
-    suspend fun recordCaptureByPlaceId(userId: String, placeId: String): Result<Unit> =
+    suspend fun recordCaptureByPlaceId(userId: String, placeId: String): Result<List<String>> =
         runCatching {
             val normalizedPlaceId = placeId.trim()
-            if (normalizedPlaceId.isBlank()) return@runCatching
+            if (normalizedPlaceId.isBlank()) return@runCatching emptyList()
             val captureXpAward = 120
 
-            val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching
+            val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching emptyList()
             val landmark =
                 dataSource.fetchLandmarkByPlaceId(normalizedPlaceId) ?: throw IllegalStateException(
                     "This location is not mapped to a landmark yet."
                 )
 
             val alreadyCaptured = dataSource.hasCaptureForUserAndLandmark(userRow.id, landmark.id)
-            if (alreadyCaptured) return@runCatching
+            if (alreadyCaptured) return@runCatching emptyList()
 
             dataSource.insertCapture(
                 com.example.gotouchgrass.data.supabase.CaptureInsert(
@@ -157,6 +247,8 @@ open class GoTouchGrassRepository(
             if (newLevel != userRow.level.toInt()) {
                 dataSource.updateUserLevel(userRow.id, newLevel)
             }
+
+            applyCaptureChallengeProgress(userId)
         }
 
     suspend fun getMappedLandmarkCategoryForPlaceId(placeId: String): Result<String?> =
@@ -172,21 +264,25 @@ open class GoTouchGrassRepository(
         dataSource.fetchLandmarkByPlaceId(normalizedPlaceId) != null
     }
 
-    suspend fun ensureLandmarkMappedForCapture(userId: String, placeId: String): Result<String?> =
+    suspend fun ensureLandmarkMappedForCapture(
+        userId: String,
+        placeId: String
+    ): Result<String?> =
         runCatching {
             val normalizedPlaceId = placeId.trim()
             require(normalizedPlaceId.isNotBlank()) { "Place ID cannot be empty." }
 
             val existing = dataSource.fetchLandmarkByPlaceId(normalizedPlaceId)
-            if (existing != null) return@runCatching existing.category
+            if (existing != null) {
+                return@runCatching existing.category
+            }
 
             val creatorUserId = dataSource.getUserRowByAuthId(userId)?.id
             val insertResult = runCatching {
                 dataSource.insertLandmark(
                     LandmarkInsert(
                         placeId = normalizedPlaceId,
-                        createdByUserId = creatorUserId,
-                        isVerified = false
+                        createdByUserId = creatorUserId
                     )
                 )
             }
@@ -194,8 +290,11 @@ open class GoTouchGrassRepository(
             if (insertResult.isFailure) {
                 // might've been updated still so check if it exists
                 val mappedAfterFailure = dataSource.fetchLandmarkByPlaceId(normalizedPlaceId)
-                if (mappedAfterFailure != null) return@runCatching mappedAfterFailure.category
-                throw (insertResult.exceptionOrNull() ?: IllegalStateException("Landmark mapping failed."))
+                if (mappedAfterFailure != null) {
+                    return@runCatching mappedAfterFailure.category
+                }
+                throw (insertResult.exceptionOrNull()
+                    ?: IllegalStateException("Landmark mapping failed."))
             }
 
             dataSource.fetchLandmarkByPlaceId(normalizedPlaceId)?.category
@@ -223,45 +322,83 @@ open class GoTouchGrassRepository(
         dataSource.fetchLandmarksByIds(capturedLandmarkIds).map { it.placeId }.toSet()
     }
 
-    suspend fun getCollectedLandmarks(userId: String): Result<List<CollectedLandmark>> = runCatching {
-        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching emptyList()
-        val captures = dataSource.fetchCapturesByUser(userRow.id)
-            .filter { it.landmarkId != null && !it.capturedAt.isNullOrBlank() }
+    suspend fun getCollectedLandmarks(userId: String): Result<List<CollectedLandmark>> =
+        runCatching {
+            val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching emptyList()
+            val captures = dataSource.fetchCapturesByUser(userRow.id)
+                .filter { it.landmarkId != null && !it.capturedAt.isNullOrBlank() }
 
-        if (captures.isEmpty()) return@runCatching emptyList()
+            if (captures.isEmpty()) return@runCatching emptyList()
 
-        val landmarkIds = captures.mapNotNull { it.landmarkId }.distinct()
-        val landmarksById = dataSource.fetchLandmarksByIds(landmarkIds).associateBy { it.id }
+            val landmarkIds = captures.mapNotNull { it.landmarkId }.distinct()
+            val landmarksById = dataSource.fetchLandmarksByIds(landmarkIds).associateBy { it.id }
 
-        captures.mapNotNull { capture ->
-            val landmarkId = capture.landmarkId ?: return@mapNotNull null
-            val capturedAt = capture.capturedAt ?: return@mapNotNull null
-            val landmark = landmarksById[landmarkId] ?: return@mapNotNull null
-            CollectedLandmark(
-                landmarkId = landmarkId,
-                placeId = landmark.placeId,
-                category = landmark.category ?: "OTHER",
-                capturedAtIso = capturedAt
-            )
+            captures.mapNotNull { capture ->
+                val landmarkId = capture.landmarkId ?: return@mapNotNull null
+                val capturedAt = capture.capturedAt ?: return@mapNotNull null
+                val landmark = landmarksById[landmarkId] ?: return@mapNotNull null
+                CollectedLandmark(
+                    landmarkId = landmarkId,
+                    placeId = landmark.placeId,
+                    category = landmark.category ?: "OTHER",
+                    capturedAtIso = capturedAt
+                )
+            }
         }
-    }
 
     suspend fun getTotalCapturedLandmarks(userId: String): Result<Int> = runCatching {
         getCollectedLandmarks(userId).getOrThrow().size
     }
 
     // call this from real game events (zone capture, location visit, etc.)
-    // TODO logic suggested by Claude Sonnet 4.6
     suspend fun recordChallengeProgress(
         userId: String, challengeId: Long, incrementBy: Double = 1.0
-    ): Result<Unit> = runCatching {
-        // TODO: look up user row by auth ID; return early if not found
-        // TODO: fetch challenge row by challengeId
-        // TODO: fetch existing challenge_progress for (userId, challengeId); return early if already completed
-        // TODO: increment progress value by incrementBy, capped at target
-        // TODO: upsert updated progress row (mark completedAt if newly finished)
-        // TODO: if newly completed, attempt to insert challenge_xp_award (idempotency guard)
-        // TODO: if award inserted, add rewardXp to user's xp_total and update user row
+    ): Result<Boolean> = runCatching {
+        if (incrementBy <= 0.0) return@runCatching false
+
+        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching false
+        val definition = resolveHardcodedDefinitionById(challengeId) ?: return@runCatching false
+        val periodStartIso = currentChallengePeriodStartIso(definition.timeWindow)
+
+        val existingProgress = dataSource.fetchChallengeProgress(userRow.id)
+            .firstOrNull { it.challengeId == challengeId && it.periodStartIso == periodStartIso }
+
+        if (!existingProgress?.completedAt.isNullOrBlank()) return@runCatching false
+
+        val oldValue = existingProgress?.progressValue ?: 0.0
+        val newValue = (oldValue + incrementBy).coerceAtMost(definition.targetValue)
+        val completedNow = oldValue < definition.targetValue && newValue >= definition.targetValue
+        val nowIso = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+
+        dataSource.upsertChallengeProgress(
+            ChallengeProgressRow(
+                userId = userRow.id,
+                challengeId = challengeId,
+                periodStartIso = periodStartIso,
+                progressValue = newValue,
+                completedAt = if (completedNow) nowIso else existingProgress?.completedAt
+            )
+        )
+
+        if (!completedNow) return@runCatching false
+
+        val didInsertAward = dataSource.tryInsertChallengeXpAward(
+            com.example.gotouchgrass.data.supabase.ChallengeXpAwardInsert(
+                userId = userRow.id,
+                challengeId = challengeId,
+                periodStartIso = periodStartIso,
+                awardedXp = definition.rewardXp.toLong()
+            )
+        )
+        if (!didInsertAward) return@runCatching false
+
+        val updatedXpTotal = userRow.xpTotal + definition.rewardXp
+        dataSource.updateUserXpTotal(userId = userRow.id, newXpTotal = updatedXpTotal)
+        val updatedLevel = (updatedXpTotal / 1000).toInt() + 1
+        if (updatedLevel != userRow.level.toInt()) {
+            dataSource.updateUserLevel(userRow.id, updatedLevel)
+        }
+        true
     }
 
     override suspend fun getCuratedRoutes(): Result<List<ExploreRouteItem>> = runCatching {
@@ -276,24 +413,6 @@ open class GoTouchGrassRepository(
             }
             route.toExploreRouteItem(zoneCount = stops.size, routeStops = stopStrings)
         }
-    }
-
-    private fun ChallengeRow.toExploreChallengeItem(progress: ChallengeProgressRow?): ExploreChallengeItem {
-        val progressValue = progress?.progressValue ?: 0.0
-        val targetValue = extractTargetValue(ruleConfigJson.toString()) ?: 1.0
-        val progressFraction = (progressValue / targetValue).coerceIn(0.0, 1.0).toFloat()
-        val type =
-            runCatching { ChallengeType.valueOf(challengeType) }.getOrDefault(ChallengeType.VISIT)
-
-        return ExploreChallengeItem(
-            id = id.toString(),
-            title = title,
-            description = description,
-            rewardXp = rewardXp.toInt(),
-            progress = "${formatValue(progressValue)} / ${formatValue(targetValue)}",
-            progressFraction = progressFraction,
-            challengeType = type
-        )
     }
 
     private fun RouteRow.toExploreRouteItem(
@@ -315,23 +434,42 @@ open class GoTouchGrassRepository(
         )
     }
 
-    private fun extractTargetValue(ruleConfigJson: String): Double? {
-        return try {
-            val json = JSONObject(ruleConfigJson)
-            val targetKeys = listOf("uniqueZones", "distanceKm", "timeMinutes")
-            for (key in targetKeys) {
-                if (!json.has(key)) continue
-                val value = json.optDouble(key, Double.NaN)
-                if (value.isFinite() && value > 0.0) return value
-            }
-            null
-        } catch (_: Exception) {
-            null
-        }
-    }
-
     private fun formatValue(value: Double): String {
         return if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
+    }
+
+    private fun currentChallengePeriodStartIso(
+        timeWindow: ChallengeTimeWindow,
+        nowDate: LocalDate = LocalDate.now(ZoneId.systemDefault()),
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ): String {
+        val periodStart = when (timeWindow) {
+            ChallengeTimeWindow.DAILY -> nowDate
+            ChallengeTimeWindow.WEEKLY -> nowDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        }
+        return periodStart.atStartOfDay(zoneId).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+    }
+
+    // for tracking challenged, function generated by GPT-5.3-Codex
+    private suspend fun countCapturesInPeriod(userId: Long, timeWindow: ChallengeTimeWindow): Int {
+        val captures = dataSource.fetchCapturesByUser(userId)
+        val today = LocalDate.now(ZoneId.systemDefault())
+        return captures.count { capture ->
+            val timestampIso = capture.capturedAt ?: capture.createdAt
+            val capturedDate = runCatching {
+                OffsetDateTime.parse(timestampIso).atZoneSameInstant(ZoneId.systemDefault())
+                    .toLocalDate()
+            }.getOrNull() ?: return@count false
+
+            when (timeWindow) {
+                ChallengeTimeWindow.DAILY -> capturedDate == today
+                ChallengeTimeWindow.WEEKLY -> {
+                    val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                    val weekEnd = weekStart.plusDays(6)
+                    !capturedDate.isBefore(weekStart) && !capturedDate.isAfter(weekEnd)
+                }
+            }
+        }
     }
 
     private fun RouteTheme.toRouteDescription(): String {
@@ -343,6 +481,39 @@ open class GoTouchGrassRepository(
             RouteTheme.HIDDEN_STUDY_SPOTS -> "Quiet and hidden study places"
             RouteTheme.CITY_HIGHLIGHTS -> "Top city highlights to explore"
         }
+    }
+
+    private suspend fun resolveHardcodedChallengeIds(): Map<String, Long> {
+        val dailyRows = runCatching { dataSource.fetchChallenges(ChallengeTimeWindow.DAILY.name) }
+            .getOrDefault(emptyList())
+        val weeklyRows = runCatching { dataSource.fetchChallenges(ChallengeTimeWindow.WEEKLY.name) }
+            .getOrDefault(emptyList())
+        val rows = dailyRows + weeklyRows
+
+        return hardcodedChallenges.mapNotNull { definition ->
+            val matched = rows.firstOrNull { row ->
+                row.timeWindow.equals(definition.timeWindow.name, ignoreCase = true) &&
+                        row.title.equals(definition.title, ignoreCase = true)
+            } ?: return@mapNotNull null
+
+            challengeLookupKey(definition.timeWindow, definition.title) to matched.id
+        }.toMap()
+    }
+
+    private suspend fun resolveHardcodedDefinitionById(challengeId: Long): HardcodedChallengeDefinition? {
+        val idByLookupKey = resolveHardcodedChallengeIds()
+        val lookupKey =
+            idByLookupKey.entries.firstOrNull { it.value == challengeId }?.key ?: return null
+        return hardcodedChallenges.firstOrNull {
+            challengeLookupKey(
+                it.timeWindow,
+                it.title
+            ) == lookupKey
+        }
+    }
+
+    private fun challengeLookupKey(timeWindow: ChallengeTimeWindow, title: String): String {
+        return "${timeWindow.name}:${title.lowercase()}"
     }
 
     suspend fun getUserSettings(userId: String): Result<UserPreferences> = runCatching {
@@ -448,7 +619,7 @@ open class GoTouchGrassRepository(
     suspend fun getLeaderboard(currentUserId: String): Result<List<LeaderboardData>> = runCatching {
         val topUsers = dataSource.fetchLeaderboardUsers(20)
         val currentUserRow = dataSource.getUserRowByAuthId(currentUserId)
-        
+
         val XP_PER_LEVEL = 1000
 
         val entries = topUsers.mapIndexed { index, userRow ->
@@ -489,8 +660,8 @@ open class GoTouchGrassRepository(
         endedAtIso: String,
         durationSec: Long,
         dominantZoneId: Long?
-    ): Result<Unit> = runCatching {
-        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching
+    ): Result<List<String>> = runCatching {
+        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching emptyList()
         dataSource.insertVisitSession(
             VisitSessionInsert(
                 userId = userRow.id,
@@ -501,6 +672,80 @@ open class GoTouchGrassRepository(
                 source = "AUTO"
             )
         )
+
+        applyTripEndChallengeProgress(
+            userId = userId,
+            tripDurationSec = durationSec
+        )
+    }
+
+    private suspend fun applyCaptureChallengeProgress(userId: String): List<String> {
+        val completedChallengeTitles = mutableListOf<String>()
+        val idByLookupKey = resolveHardcodedChallengeIds()
+        val captureChallenges = hardcodedChallenges.filter {
+            it.challengeType == ChallengeType.VISIT &&
+                    (it.key == "daily_capture_1" || it.key == "weekly_capture_5")
+        }
+
+        captureChallenges.forEach { definition ->
+            val challengeId =
+                idByLookupKey[challengeLookupKey(definition.timeWindow, definition.title)]
+                    ?: return@forEach
+            val completed = recordChallengeProgress(
+                userId = userId,
+                challengeId = challengeId,
+                incrementBy = 1.0
+            )
+                .getOrDefault(false)
+            if (completed) completedChallengeTitles += definition.title
+        }
+
+        return completedChallengeTitles
+    }
+
+    private suspend fun applyTripEndChallengeProgress(
+        userId: String,
+        tripDurationSec: Long
+    ): List<String> {
+        val completedChallengeTitles = mutableListOf<String>()
+        val idByLookupKey = resolveHardcodedChallengeIds()
+        val tripCountChallenges = hardcodedChallenges.filter {
+            it.challengeType == ChallengeType.EXPLORE && it.key == "weekly_trip_1"
+        }
+
+        val timeChallenges = hardcodedChallenges.filter {
+            it.challengeType == ChallengeType.TIME && it.key == "weekly_time_60"
+        }
+
+        tripCountChallenges.forEach { definition ->
+            val challengeId =
+                idByLookupKey[challengeLookupKey(definition.timeWindow, definition.title)]
+                    ?: return@forEach
+            val completed = recordChallengeProgress(
+                userId = userId,
+                challengeId = challengeId,
+                incrementBy = 1.0
+            )
+                .getOrDefault(false)
+            if (completed) completedChallengeTitles += definition.title
+        }
+
+        val minutes = (tripDurationSec / 60.0).coerceAtLeast(0.0)
+        if (minutes <= 0.0) return completedChallengeTitles
+        timeChallenges.forEach { definition ->
+            val challengeId =
+                idByLookupKey[challengeLookupKey(definition.timeWindow, definition.title)]
+                    ?: return@forEach
+            val completed = recordChallengeProgress(
+                userId = userId,
+                challengeId = challengeId,
+                incrementBy = minutes
+            )
+                .getOrDefault(false)
+            if (completed) completedChallengeTitles += definition.title
+        }
+
+        return completedChallengeTitles
     }
 
     suspend fun addXpForTrip(userId: String, xpAmount: Int): Result<Unit> = runCatching {
@@ -555,10 +800,10 @@ open class GoTouchGrassRepository(
         }
 
         // Already counted today — return current streak unchanged
-        if (lastDate == today) return@runCatching existing?.currentCount ?: 1
+        if (lastDate == today) return@runCatching existing.currentCount
 
         val newCount = if (lastDate == today.minusDays(1)) {
-            (existing?.currentCount ?: 0) + 1  // consecutive day
+            existing.currentCount + 1  // consecutive day
         } else {
             1  // gap or first time
         }
@@ -606,17 +851,23 @@ open class GoTouchGrassRepository(
         return try {
             val array = element.jsonArray
             if (array.isEmpty()) return null
-            var sumLat = 0.0; var sumLng = 0.0; var count = 0
+            var sumLat = 0.0
+            var sumLng = 0.0
+            var count = 0
             for (item in array) {
                 val obj = item.jsonObject
                 val lat = obj["lat"]?.jsonPrimitive?.content?.toDoubleOrNull()
                     ?: obj["latitude"]?.jsonPrimitive?.content?.toDoubleOrNull()
                 val lng = obj["lng"]?.jsonPrimitive?.content?.toDoubleOrNull()
                     ?: obj["longitude"]?.jsonPrimitive?.content?.toDoubleOrNull()
-                if (lat != null && lng != null) { sumLat += lat; sumLng += lng; count++ }
+                if (lat != null && lng != null) {
+                    sumLat += lat; sumLng += lng; count++
+                }
             }
             if (count == 0) null else GmsLatLng(sumLat / count, sumLng / count)
-        } catch (_: Exception) { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     suspend fun getRouteStopLandmarks(routeId: Long): Result<List<Pair<Long, String>>> =
@@ -627,7 +878,8 @@ open class GoTouchGrassRepository(
             if (landmarkIds.isEmpty()) return@runCatching emptyList()
             val landmarks = dataSource.fetchLandmarksByIds(landmarkIds)
             stops.sortedBy { it.orderIndex }.mapNotNull { stop ->
-                val lm = landmarks.firstOrNull { it.id == stop.landmarkId } ?: return@mapNotNull null
+                val lm =
+                    landmarks.firstOrNull { it.id == stop.landmarkId } ?: return@mapNotNull null
                 Pair(lm.id, lm.placeId)
             }
         }

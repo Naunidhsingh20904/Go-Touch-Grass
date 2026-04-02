@@ -79,7 +79,7 @@ open class SupabaseDataSource(
 
     suspend fun fetchChallenges(timeWindow: String): List<ChallengeRow> =
         supabaseClient.from(TABLE_CHALLENGES).select().decodeList<ChallengeRow>()
-            .filter { it.timeWindow == timeWindow }
+            .filter { it.timeWindow.equals(timeWindow, ignoreCase = true) }
 
     suspend fun fetchChallengeProgress(userId: Long): List<ChallengeProgressRow> =
         supabaseClient.from(TABLE_CHALLENGE_PROGRESS).select().decodeList<ChallengeProgressRow>()
@@ -87,7 +87,7 @@ open class SupabaseDataSource(
 
     suspend fun upsertChallengeProgress(row: ChallengeProgressRow) {
         supabaseClient.from(TABLE_CHALLENGE_PROGRESS)
-            .upsert(row) { onConflict = "user_id,challenge_id" }
+            .upsert(row) { onConflict = "user_id,challenge_id,period_start_iso" }
     }
 
     suspend fun tryInsertChallengeXpAward(row: ChallengeXpAwardInsert): Boolean {
@@ -247,17 +247,13 @@ open class SupabaseDataSource(
         supabaseClient.from(TABLE_VISIT_SESSIONS).select {
             filter {
                 eq("user_id", userId)
-                neq("zone_id", "null")
             }
             order("started_at", Order.DESCENDING)
-            limit(1)
-        }.decodeList<VisitSessionRow>().firstOrNull()
-
-    suspend fun fetchZoneById(zoneId: Long): ZoneRow? =
-        supabaseClient.from(TABLE_ZONES).select {
-            filter { eq("id", zoneId) }
-            limit(1)
-        }.decodeList<ZoneRow>().firstOrNull()
+            // Avoid SQL null-comparison edge cases by selecting ordered sessions
+            // and choosing the first zoned row client-side.
+            // fix by GPT-5.3-Codex
+            limit(200)
+        }.decodeList<VisitSessionRow>().firstOrNull { it.zoneId != null }
 
     suspend fun fetchRouteStopsByRouteId(routeId: Long): List<RouteStopRow> =
         supabaseClient.from(TABLE_ROUTE_STOPS).select {

@@ -9,7 +9,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +34,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -275,10 +276,15 @@ fun MapScreen(
     var collectedLandmarks by remember { mutableStateOf<List<CollectedLandmark>>(emptyList()) }
     var isLoadingCollectedLandmarks by remember { mutableStateOf(false) }
     var collectedLandmarksError by remember { mutableStateOf<String?>(null) }
-    var resolvedCollectedPlaces by remember { mutableStateOf<Map<String, ResolvedCollectedPlace>>(emptyMap()) }
+    var resolvedCollectedPlaces by remember {
+        mutableStateOf<Map<String, ResolvedCollectedPlace>>(
+            emptyMap()
+        )
+    }
     var selectedCollectedPlaceId by remember { mutableStateOf<String?>(null) }
     val collectedListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     val isCollectedMode = showCollectedOverlay
     val showCollectedMarkers = isCollectedMode && resolvedCollectedPlaces.isNotEmpty()
     val showNearbyRoutes = !isCollectedMode
@@ -334,6 +340,12 @@ fun MapScreen(
         if (!openCollectedOverlayOnLaunch) return@LaunchedEffect
         showCollectedOverlay = true
         onCollectedOverlayOpened()
+    }
+
+    LaunchedEffect(tripViewModel?.pendingChallengeSnackbarMessage) {
+        val message = tripViewModel?.pendingChallengeSnackbarMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        tripViewModel.consumeChallengeSnackbarMessage()
     }
 
     LaunchedEffect(placesClient, collectedLandmarks) {
@@ -454,7 +466,8 @@ fun MapScreen(
         }
 
         if (mappedResult.isSuccess && isMapped == true) {
-            mappedCategoryForSelectedPoi = repository.getMappedLandmarkCategoryForPlaceId(poi.placeId).getOrNull()
+            mappedCategoryForSelectedPoi =
+                repository.getMappedLandmarkCategoryForPlaceId(poi.placeId).getOrNull()
             mappedInDbForSelectedPoi = true
         } else {
             mappedCategoryForSelectedPoi = null
@@ -489,12 +502,19 @@ fun MapScreen(
             repository = repository,
             currentUserId = currentUserId,
             onClose = { captureTarget = null },
-            onCaptured = { capturedPlaceId ->
+            onCaptured = { capturedPlaceId, completedChallengeTitles ->
                 capturedPlaceIds = capturedPlaceIds + capturedPlaceId
-                captureTarget = null
                 selectedPoi = null
+                captureTarget = null
                 // 120 XP is the fixed capture award (matches recordCaptureByPlaceId)
                 tripViewModel?.onCapture(xpAwarded = 120)
+                if (completedChallengeTitles.isNotEmpty()) {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(
+                            "Challenge completed: ${completedChallengeTitles.joinToString(", ")}"
+                        )
+                    }
+                }
                 viewModel?.refresh()
             })
         return
@@ -504,7 +524,12 @@ fun MapScreen(
         position = CameraPosition.fromLatLngZoom(initialCameraTarget, initialCameraZoom)
     }
 
-    LaunchedEffect(isCollectedMode, collectedLandmarks, resolvedCollectedPlaces, cameraPositionState) {
+    LaunchedEffect(
+        isCollectedMode,
+        collectedLandmarks,
+        resolvedCollectedPlaces,
+        cameraPositionState
+    ) {
         if (!isCollectedMode || collectedLandmarks.isEmpty()) return@LaunchedEffect
 
         snapshotFlow { collectedListState.firstVisibleItemIndex }
@@ -655,7 +680,8 @@ fun MapScreen(
                         ),
                         onClick = {
                             selectedCollectedPlaceId = place.placeId
-                            val itemIndex = collectedLandmarks.indexOfFirst { it.placeId == place.placeId }
+                            val itemIndex =
+                                collectedLandmarks.indexOfFirst { it.placeId == place.placeId }
                             if (itemIndex >= 0) {
                                 coroutineScope.launch {
                                     collectedListState.animateScrollToItem(itemIndex)
@@ -684,7 +710,7 @@ fun MapScreen(
                 Marker(
                     state = MarkerState(position = stop.latLng),
                     title = stop.placeName,
-                    snippet = if (stop.hintText != null) stop.hintText else "Stop ${idx + 1}",
+                    snippet = stop.hintText ?: "Stop ${idx + 1}",
                     icon = BitmapDescriptorFactory.defaultMarker(
                         if (isCaptured) BitmapDescriptorFactory.HUE_GREEN
                         else BitmapDescriptorFactory.HUE_AZURE
@@ -754,7 +780,8 @@ fun MapScreen(
                         bottom = 72.dp
                     ),
                 onNext = {
-                    if (routes.isNotEmpty()) currentNearbyIndex = (currentNearbyIndex + 1) % routes.size
+                    if (routes.isNotEmpty()) currentNearbyIndex =
+                        (currentNearbyIndex + 1) % routes.size
                 },
                 onStartRoute = { route -> tripViewModel?.startRouteTrip(route) },
                 onStartFreeRoam = { tripViewModel?.startFreeRoamTrip() }
@@ -830,7 +857,10 @@ fun MapScreen(
                     mappingLandmarkError = null
                     coroutineScope.launch {
                         val mappingResult =
-                            repository.ensureLandmarkMappedForCapture(currentUserId, selectedPlaceIdForRequest)
+                            repository.ensureLandmarkMappedForCapture(
+                                userId = currentUserId,
+                                placeId = selectedPlaceIdForRequest
+                            )
                         if (selectedPoi?.placeId == selectedPlaceIdForRequest) {
                             if (mappingResult.isSuccess) {
                                 mappedCategoryForSelectedPoi = mappingResult.getOrNull()
@@ -848,12 +878,26 @@ fun MapScreen(
                 onCapture = {
                     val alreadyCaptured = capturedPlaceIds.contains(poi.placeId)
                     if (mappedInDbForSelectedPoi != true || alreadyCaptured) return@CapturePoiPopup
-                    captureTarget = CaptureTarget(
-                        placeId = poi.placeId,
-                        placeName = poi.name,
-                        categoryName = mappedCategoryForSelectedPoi,
-                        photoBitmap = selectedPoiPhoto
-                    )
+                    if (repository == null || currentUserId == null) return@CapturePoiPopup
+                    coroutineScope.launch {
+                        val mappingResult = repository.ensureLandmarkMappedForCapture(
+                            userId = currentUserId,
+                            placeId = poi.placeId
+                        )
+                        if (mappingResult.isSuccess) {
+                            mappedCategoryForSelectedPoi = mappingResult.getOrNull()
+                            captureTarget = CaptureTarget(
+                                placeId = poi.placeId,
+                                placeName = poi.name,
+                                categoryName = mappedCategoryForSelectedPoi,
+                                photoBitmap = selectedPoiPhoto
+                            )
+                        } else {
+                            mappingLandmarkError =
+                                mappingResult.exceptionOrNull()?.message
+                                    ?: "This landmark could not be prepared for capture."
+                        }
+                    }
                 },
                 onClose = { selectedPoi = null })
         }
@@ -896,6 +940,13 @@ fun MapScreen(
                 )
             }
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 12.dp)
+        )
 
         if (!locationServicesEnabled || !isLocationPermissionGranted) {
             val message = if (!locationServicesEnabled) {
@@ -974,7 +1025,7 @@ private fun CollectedLandmarksOverlay(
                 }
 
                 else -> {
-                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
                         val maxHeight = 240.dp
                         LazyColumn(
                             modifier = Modifier
@@ -1077,8 +1128,8 @@ private fun MapHeaderOverlay(
     currentXp: Int,
     maxXp: Int,
     xpToNext: Int,
-    streakDays: Int = 0,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    streakDays: Int = 0
 ) {
     val cardSurface = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
     val border = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
@@ -1171,8 +1222,8 @@ private fun NearbyAreasOverlay(
     route: com.example.gotouchgrass.domain.ExploreRouteItem?,
     index: Int,
     total: Int,
-    showTripLauncher: Boolean = false,
     modifier: Modifier = Modifier,
+    showTripLauncher: Boolean = false,
     onNext: () -> Unit,
     onStartRoute: ((com.example.gotouchgrass.domain.ExploreRouteItem) -> Unit)? = null,
     onStartFreeRoam: (() -> Unit)? = null
