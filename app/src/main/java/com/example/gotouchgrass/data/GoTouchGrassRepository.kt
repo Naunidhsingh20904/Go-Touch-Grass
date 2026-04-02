@@ -16,6 +16,7 @@ import com.example.gotouchgrass.domain.ExploreChallengeItem
 import com.example.gotouchgrass.domain.ExploreRouteItem
 import com.example.gotouchgrass.domain.FriendMapMarker
 import com.example.gotouchgrass.domain.LatLng
+import com.example.gotouchgrass.domain.LandmarkOwnershipSummary
 import com.example.gotouchgrass.domain.LeaderboardData
 import com.example.gotouchgrass.domain.LifetimeStats
 import com.example.gotouchgrass.domain.RouteDifficulty
@@ -311,6 +312,27 @@ open class GoTouchGrassRepository(
             dataSource.fetchLandmarkByPlaceId(normalizedPlaceId) ?: return@runCatching null
 
         dataSource.fetchLatestCaptureByUserAndLandmark(userRow.id, landmark.id)?.capturedAt
+    }
+
+    suspend fun getLandmarkOwnershipSummaryByPlaceId(
+        placeId: String
+    ): Result<LandmarkOwnershipSummary?> = runCatching {
+        val normalizedPlaceId = placeId.trim()
+        if (normalizedPlaceId.isBlank()) return@runCatching null
+
+        val landmark = dataSource.fetchLandmarkByPlaceId(normalizedPlaceId) ?: return@runCatching null
+        val firstDiscovererUser = landmark.createdByUserId?.let { dataSource.getUserRowById(it) }
+        val latestCapture = dataSource.fetchLatestCaptureByLandmark(landmark.id)
+        val latestCapturerUser = latestCapture?.userId?.let { dataSource.getUserRowById(it) }
+
+        LandmarkOwnershipSummary(
+            placeId = landmark.placeId,
+            firstDiscovererUserId = landmark.createdByUserId,
+            firstDiscovererName = firstDiscovererUser?.displayName ?: firstDiscovererUser?.username,
+            mostRecentCapturerUserId = latestCapture?.userId,
+            mostRecentCapturerName = latestCapturerUser?.displayName ?: latestCapturerUser?.username,
+            mostRecentCaptureAtIso = latestCapture?.capturedAt ?: latestCapture?.createdAt
+        )
     }
 
     suspend fun getCapturedPlaceIdsByUserId(userId: String): Result<Set<String>> = runCatching {

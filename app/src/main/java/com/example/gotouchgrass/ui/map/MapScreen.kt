@@ -63,6 +63,7 @@ import com.example.gotouchgrass.data.FakeMapRepository
 import com.example.gotouchgrass.data.FakeProfileRepository
 import com.example.gotouchgrass.data.GoTouchGrassRepository
 import com.example.gotouchgrass.domain.CollectedLandmark
+import com.example.gotouchgrass.domain.LandmarkOwnershipSummary
 import com.example.gotouchgrass.domain.MapModel
 import com.example.gotouchgrass.domain.RouteStopMapMarker
 import com.example.gotouchgrass.location.AppLocationTracker
@@ -272,6 +273,7 @@ fun MapScreen(
     var isResolvingPoiInfo by remember { mutableStateOf(false) }
     var selectedPoiPhoto by remember { mutableStateOf<Bitmap?>(null) }
     var captureTimestamp by remember { mutableStateOf<String?>(null) }
+    var landmarkOwnershipSummary by remember { mutableStateOf<LandmarkOwnershipSummary?>(null) }
     var showCollectedOverlay by remember { mutableStateOf(false) }
     var collectedLandmarks by remember { mutableStateOf<List<CollectedLandmark>>(emptyList()) }
     var isLoadingCollectedLandmarks by remember { mutableStateOf(false) }
@@ -491,6 +493,17 @@ fun MapScreen(
 
         val result = repository.getLatestCaptureDateForPlaceId(currentUserId, poi.placeId)
         captureTimestamp = result.getOrNull()
+    }
+
+    LaunchedEffect(selectedPoi?.placeId, repository) {
+        val poi = selectedPoi
+        if (poi == null || repository == null) {
+            landmarkOwnershipSummary = null
+            return@LaunchedEffect
+        }
+
+        landmarkOwnershipSummary = repository.getLandmarkOwnershipSummaryByPlaceId(poi.placeId)
+            .getOrNull()
     }
 
     captureTarget?.let { target ->
@@ -849,6 +862,9 @@ fun MapScreen(
                 distanceMeters = distanceMeters,
                 isCaptured = capturedPlaceIds.contains(poi.placeId),
                 captureTimestamp = captureTimestamp,
+                firstDiscovererName = landmarkOwnershipSummary?.firstDiscovererName,
+                mostRecentCapturerName = landmarkOwnershipSummary?.mostRecentCapturerName,
+                mostRecentCaptureTimestamp = landmarkOwnershipSummary?.mostRecentCaptureAtIso,
                 mappingErrorMessage = mappingLandmarkError,
                 onMapLandmark = {
                     if (repository == null || currentUserId == null || isMappingLandmark) return@CapturePoiPopup
@@ -1362,6 +1378,9 @@ private fun CapturePoiPopup(
     distanceMeters: Float?,
     isCaptured: Boolean,
     captureTimestamp: String?,
+    firstDiscovererName: String?,
+    mostRecentCapturerName: String?,
+    mostRecentCaptureTimestamp: String?,
     mappingErrorMessage: String?,
     onMapLandmark: () -> Unit,
     onCapture: () -> Unit,
@@ -1414,13 +1433,35 @@ private fun CapturePoiPopup(
                     )
                 }
 
+                if (isMapped == true) {
+                    val firstDiscovererLabel = firstDiscovererName ?: "Unknown"
+                    Text(
+                        text = "First discovered by $firstDiscovererLabel",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    val mostRecentLabel = mostRecentCapturerName ?: "No captures yet"
+                    val formattedMostRecentTime = formatCaptureTimestamp(mostRecentCaptureTimestamp)
+                    val mostRecentDetails = if (formattedMostRecentTime != null && mostRecentCapturerName != null) {
+                        "$mostRecentLabel at $formattedMostRecentTime"
+                    } else {
+                        mostRecentLabel
+                    }
+                    Text(
+                        text = "Most recently captured by $mostRecentDetails",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 // Show capture timestamp if already captured
                 if (isCaptured && captureTimestamp != null) {
                     Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingXs))
                     val formattedTime = formatCaptureTimestamp(captureTimestamp)
                     if (formattedTime != null) {
                         Text(
-                            text = "Captured: $formattedTime",
+                            text = "You captured this landmark $formattedTime",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

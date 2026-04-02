@@ -77,6 +77,12 @@ open class SupabaseDataSource(
         supabaseClient.from(TABLE_USERS).select().decodeList<UserRow>()
             .firstOrNull { it.authUserId == authUserId }
 
+    suspend fun getUserRowById(userId: Long): UserRow? =
+        supabaseClient.from(TABLE_USERS).select {
+            filter { eq("id", userId) }
+            limit(1)
+        }.decodeList<UserRow>().firstOrNull()
+
     suspend fun fetchChallenges(timeWindow: String): List<ChallengeRow> =
         supabaseClient.from(TABLE_CHALLENGES).select().decodeList<ChallengeRow>()
             .filter { it.timeWindow.equals(timeWindow, ignoreCase = true) }
@@ -175,6 +181,14 @@ open class SupabaseDataSource(
                 eq("user_id", userId)
                 eq("landmark_id", landmarkId)
             }
+            order("created_at", Order.DESCENDING)
+            limit(1)
+        }.decodeList<CaptureRow>().firstOrNull()
+
+    suspend fun fetchLatestCaptureByLandmark(landmarkId: Long): CaptureRow? =
+        supabaseClient.from(TABLE_CAPTURES).select {
+            filter { eq("landmark_id", landmarkId) }
+            order("captured_at", Order.DESCENDING)
             order("created_at", Order.DESCENDING)
             limit(1)
         }.decodeList<CaptureRow>().firstOrNull()

@@ -200,6 +200,15 @@ data class CollectedLandmark(
     val capturedAtIso: String
 )
 
+data class LandmarkOwnershipSummary(
+    val placeId: String,
+    val firstDiscovererUserId: Long? = null,
+    val firstDiscovererName: String? = null,
+    val mostRecentCapturerUserId: Long? = null,
+    val mostRecentCapturerName: String? = null,
+    val mostRecentCaptureAtIso: String? = null
+)
+
 data class ZoneOwnership(
     val zoneId: String,
     val ownerUserId: String,
