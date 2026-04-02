@@ -218,6 +218,22 @@ data class CaptureInsert(
 )
 
 @Serializable
+data class ContestRow(
+    val id: Long,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("user_id") val userId: Long,
+    @SerialName("landmark_id") val landmarkId: Long,
+    @SerialName("xp_awarded") val xpAwarded: Int
+)
+
+@Serializable
+data class ContestInsert(
+    @SerialName("user_id") val userId: Long,
+    @SerialName("landmark_id") val landmarkId: Long,
+    @SerialName("xp_awarded") val xpAwarded: Int
+)
+
+@Serializable
 data class FriendRequestRow(
     val id: Long,
     @SerialName("requester_id") val requesterId: Long,

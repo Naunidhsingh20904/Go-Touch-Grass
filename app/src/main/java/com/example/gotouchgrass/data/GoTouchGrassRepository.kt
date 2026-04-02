@@ -16,6 +16,8 @@ import com.example.gotouchgrass.domain.ExploreChallengeItem
 import com.example.gotouchgrass.domain.ExploreRouteItem
 import com.example.gotouchgrass.domain.FriendMapMarker
 import com.example.gotouchgrass.domain.LatLng
+import com.example.gotouchgrass.domain.LandmarkOwnershipSummary
+import com.example.gotouchgrass.domain.LandmarkLeaderboardEntry
 import com.example.gotouchgrass.domain.LeaderboardData
 import com.example.gotouchgrass.domain.LifetimeStats
 import com.example.gotouchgrass.domain.RouteDifficulty
@@ -42,9 +44,16 @@ import com.google.android.gms.maps.model.LatLng as GmsLatLng
 open class GoTouchGrassRepository(
     private val dataSource: SupabaseDataSource
 ) : ExploreRepository {
+    companion object {
+        const val CONTEST_COOLDOWN_MINUTES = 30L
+    }
+
     enum class SearchEventSource {
         RESULT, RECENT, TRENDING
     }
+
+    private val firstCaptureXpAward = 120
+    private val repeatContestXpAward = 30
 
     // add hard coded challenges for now instead of storing in and pulling from the db
     private data class HardcodedChallengeDefinition(
@@ -219,7 +228,6 @@ open class GoTouchGrassRepository(
         runCatching {
             val normalizedPlaceId = placeId.trim()
             if (normalizedPlaceId.isBlank()) return@runCatching emptyList()
-            val captureXpAward = 120
 
             val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching emptyList()
             val landmark =
@@ -228,27 +236,50 @@ open class GoTouchGrassRepository(
                 )
 
             val alreadyCaptured = dataSource.hasCaptureForUserAndLandmark(userRow.id, landmark.id)
-            if (alreadyCaptured) return@runCatching emptyList()
+            if (alreadyCaptured) {
+                val latestOwnershipEventAt = latestOwnershipEventForUserAndLandmark(userRow.id, landmark.id)
+                val latestCaptureAt = latestOwnershipEventAt?.let { it }
+                val remainingMinutes = latestCaptureAt?.let { contestCooldownRemainingMinutes(it) } ?: 0L
+                if (remainingMinutes > 0L) {
+                    throw IllegalStateException("Contest cooldown active. Try again in about ${remainingMinutes}m.")
+                }
+            }
 
-            dataSource.insertCapture(
-                com.example.gotouchgrass.data.supabase.CaptureInsert(
-                    userId = userRow.id,
-                    zoneId = landmark.zoneId,
-                    landmarkId = landmark.id,
-                    rarityAtTime = rarityScoreForLandmarkCategoryName(landmark.category ?: "OTHER"),
-                    xpAwarded = captureXpAward
+            val xpAward = if (alreadyCaptured) repeatContestXpAward else firstCaptureXpAward
+
+            if (alreadyCaptured) {
+                dataSource.insertContest(
+                    com.example.gotouchgrass.data.supabase.ContestInsert(
+                        userId = userRow.id,
+                        landmarkId = landmark.id,
+                        xpAwarded = xpAward
+                    )
                 )
-            )
+            } else {
+                dataSource.insertCapture(
+                    com.example.gotouchgrass.data.supabase.CaptureInsert(
+                        userId = userRow.id,
+                        zoneId = landmark.zoneId,
+                        landmarkId = landmark.id,
+                        rarityAtTime = rarityScoreForLandmarkCategoryName(landmark.category ?: "OTHER"),
+                        xpAwarded = xpAward
+                    )
+                )
+            }
 
             // update user xp total on capture
-            val newXpTotal = userRow.xpTotal + captureXpAward.toLong()
+            val newXpTotal = userRow.xpTotal + xpAward.toLong()
             dataSource.updateUserXpTotal(userId = userRow.id, newXpTotal = newXpTotal)
             val newLevel = (newXpTotal / 1000).toInt() + 1
             if (newLevel != userRow.level.toInt()) {
                 dataSource.updateUserLevel(userRow.id, newLevel)
             }
 
-            applyCaptureChallengeProgress(userId)
+            if (!alreadyCaptured) {
+                applyCaptureChallengeProgress(userId)
+            } else {
+                emptyList()
+            }
         }
 
     suspend fun getMappedLandmarkCategoryForPlaceId(placeId: String): Result<String?> =
@@ -310,8 +341,141 @@ open class GoTouchGrassRepository(
         val landmark =
             dataSource.fetchLandmarkByPlaceId(normalizedPlaceId) ?: return@runCatching null
 
-        dataSource.fetchLatestCaptureByUserAndLandmark(userRow.id, landmark.id)?.capturedAt
+        latestOwnershipEventForUserAndLandmark(userRow.id, landmark.id)
     }
+
+    suspend fun getLandmarkOwnershipSummaryByPlaceId(
+        placeId: String
+    ): Result<LandmarkOwnershipSummary?> = runCatching {
+        val normalizedPlaceId = placeId.trim()
+        if (normalizedPlaceId.isBlank()) return@runCatching null
+
+        val landmark = dataSource.fetchLandmarkByPlaceId(normalizedPlaceId) ?: return@runCatching null
+        val firstDiscovererUser = landmark.createdByUserId?.let { dataSource.getUserRowById(it) }
+        val latestCapture = dataSource.fetchLatestCaptureByLandmark(landmark.id)
+        val latestContest = dataSource.fetchLatestContestByLandmark(landmark.id)
+        val latestCaptureUser = latestCapture?.userId?.let { dataSource.getUserRowById(it) }
+        val latestContestUser = latestContest?.userId?.let { dataSource.getUserRowById(it) }
+        val captures = dataSource.fetchCapturesByLandmark(landmark.id)
+        val contests = dataSource.fetchContestsByLandmark(landmark.id)
+
+        val leaderEntry = buildLeaderBoardForLandmark(captures, contests)
+
+        val leaderUser = leaderEntry?.first?.let { dataSource.getUserRowById(it) }
+
+        LandmarkOwnershipSummary(
+            placeId = landmark.placeId,
+            firstDiscovererUserId = landmark.createdByUserId,
+            firstDiscovererName = firstDiscovererUser?.displayName ?: firstDiscovererUser?.username,
+            mostRecentCapturerUserId = latestContest?.userId ?: latestCapture?.userId,
+            mostRecentCapturerName = latestContestUser?.displayName
+                ?: latestContestUser?.username
+                ?: latestCaptureUser?.displayName
+                ?: latestCaptureUser?.username,
+            mostRecentCaptureAtIso = latestContest?.createdAt ?: latestCapture?.capturedAt ?: latestCapture?.createdAt,
+            currentLeaderUserId = leaderEntry?.first,
+            currentLeaderName = leaderUser?.displayName ?: leaderUser?.username,
+            currentLeaderContestScore = leaderEntry?.second ?: 0,
+            currentLeaderLastContestAtIso = leaderEntry?.third
+        )
+    }
+
+    suspend fun getLandmarkLeaderboardByPlaceId(
+        placeId: String
+    ): Result<List<LandmarkLeaderboardEntry>> = runCatching {
+        val normalizedPlaceId = placeId.trim()
+        if (normalizedPlaceId.isBlank()) return@runCatching emptyList()
+
+        val landmark = dataSource.fetchLandmarkByPlaceId(normalizedPlaceId) ?: return@runCatching emptyList()
+        val captures = dataSource.fetchCapturesByLandmark(landmark.id)
+        val contests = dataSource.fetchContestsByLandmark(landmark.id)
+        val leaderboardRows = buildLeaderboardRowsForLandmark(captures, contests)
+
+        leaderboardRows.mapNotNull { row ->
+            val user = dataSource.getUserRowById(row.userId) ?: return@mapNotNull null
+            LandmarkLeaderboardEntry(
+                userId = user.id,
+                authUserId = user.authUserId,
+                displayName = user.displayName.ifBlank { user.username },
+                score = row.score,
+                lastEventAtIso = row.latestEventAtIso
+            )
+        }
+    }
+
+    private fun contestCooldownRemainingMinutes(lastCaptureIso: String): Long {
+        val lastCaptureAt = parseIso(lastCaptureIso) ?: return 0L
+        val cooldownUntil = lastCaptureAt.plusMinutes(CONTEST_COOLDOWN_MINUTES)
+        val now = OffsetDateTime.now(ZoneOffset.UTC)
+        val remainingSeconds = java.time.Duration.between(now, cooldownUntil).seconds
+        if (remainingSeconds <= 0) return 0L
+        return ((remainingSeconds + 59) / 60)
+    }
+
+    private fun parseIso(value: String?): OffsetDateTime? {
+        if (value.isNullOrBlank()) return null
+        return runCatching { OffsetDateTime.parse(value) }.getOrNull()
+    }
+
+    private suspend fun latestOwnershipEventForUserAndLandmark(userId: Long, landmarkId: Long): String? {
+        val latestCaptureAt = dataSource.fetchLatestCaptureByUserAndLandmark(userId, landmarkId)
+            ?.let { it.capturedAt ?: it.createdAt }
+        val latestContestAt = dataSource.fetchLatestContestByUserAndLandmark(userId, landmarkId)
+            ?.createdAt
+        return listOfNotNull(latestCaptureAt, latestContestAt)
+            .maxWithOrNull(compareBy<String> { it })
+    }
+
+    private fun buildLeaderBoardForLandmark(
+        captures: List<com.example.gotouchgrass.data.supabase.CaptureRow>,
+        contests: List<com.example.gotouchgrass.data.supabase.ContestRow>
+    ): Triple<Long, Int, String?>? {
+        return buildLeaderboardRowsForLandmark(captures, contests).firstOrNull()?.let {
+            Triple(it.userId, it.score, it.latestEventAtIso)
+        }
+    }
+
+    private fun buildLeaderboardRowsForLandmark(
+        captures: List<com.example.gotouchgrass.data.supabase.CaptureRow>,
+        contests: List<com.example.gotouchgrass.data.supabase.ContestRow>
+    ): List<LeaderboardScoreRow> {
+        val captureScores = captures.groupBy { it.userId }.mapValues { entry ->
+            val latestCaptureAt = entry.value.maxByOrNull { it.capturedAt ?: it.createdAt }
+                ?.let { it.capturedAt ?: it.createdAt }
+            ScoreBundle(score = 1, latestEventAtIso = latestCaptureAt)
+        }
+
+        val contestScores = contests.groupBy { it.userId }.mapValues { entry ->
+            val latestContestAt = entry.value.maxByOrNull { it.createdAt }?.createdAt
+            ScoreBundle(score = entry.value.size, latestEventAtIso = latestContestAt)
+        }
+
+        val allUserIds = (captureScores.keys + contestScores.keys).toSet()
+        return allUserIds.mapNotNull { userId ->
+            val captureScore = captureScores[userId]
+            val contestScore = contestScores[userId]
+            val totalScore = (captureScore?.score ?: 0) + (contestScore?.score ?: 0)
+            if (totalScore <= 0) return@mapNotNull null
+            val latestEventAtIso = listOfNotNull(captureScore?.latestEventAtIso, contestScore?.latestEventAtIso)
+                .maxWithOrNull(compareBy<String> { it })
+            LeaderboardScoreRow(userId = userId, score = totalScore, latestEventAtIso = latestEventAtIso)
+        }.sortedWith(
+            compareByDescending<LeaderboardScoreRow> { it.score }
+                .thenByDescending { it.latestEventAtIso ?: "" }
+                .thenBy { it.userId }
+        )
+    }
+
+    private data class ScoreBundle(
+        val score: Int,
+        val latestEventAtIso: String?
+    )
+
+    private data class LeaderboardScoreRow(
+        val userId: Long,
+        val score: Int,
+        val latestEventAtIso: String?
+    )
 
     suspend fun getCapturedPlaceIdsByUserId(userId: String): Result<Set<String>> = runCatching {
         val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching emptySet()

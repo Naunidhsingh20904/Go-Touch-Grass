@@ -26,6 +26,7 @@ open class SupabaseDataSource(
         const val TABLE_STREAKS = "streak"
         const val TABLE_VISIT_SESSIONS = "visit_session"
         const val TABLE_CAPTURES = "capture"
+        const val TABLE_LANDMARK_CONTESTS = "landmark_contest"
         const val TABLE_FRIEND_REQUESTS = "friend_request"
         const val TABLE_FRIENDSHIPS = "friendship"
     }
@@ -76,6 +77,12 @@ open class SupabaseDataSource(
     suspend fun getUserRowByAuthId(authUserId: String): UserRow? =
         supabaseClient.from(TABLE_USERS).select().decodeList<UserRow>()
             .firstOrNull { it.authUserId == authUserId }
+
+    suspend fun getUserRowById(userId: Long): UserRow? =
+        supabaseClient.from(TABLE_USERS).select {
+            filter { eq("id", userId) }
+            limit(1)
+        }.decodeList<UserRow>().firstOrNull()
 
     suspend fun fetchChallenges(timeWindow: String): List<ChallengeRow> =
         supabaseClient.from(TABLE_CHALLENGES).select().decodeList<ChallengeRow>()
@@ -178,6 +185,48 @@ open class SupabaseDataSource(
             order("created_at", Order.DESCENDING)
             limit(1)
         }.decodeList<CaptureRow>().firstOrNull()
+
+    suspend fun fetchLatestContestByUserAndLandmark(userId: Long, landmarkId: Long): ContestRow? =
+        supabaseClient.from(TABLE_LANDMARK_CONTESTS).select {
+            filter {
+                eq("user_id", userId)
+                eq("landmark_id", landmarkId)
+            }
+            order("created_at", Order.DESCENDING)
+            limit(1)
+        }.decodeList<ContestRow>().firstOrNull()
+
+    suspend fun fetchLatestCaptureByLandmark(landmarkId: Long): CaptureRow? =
+        supabaseClient.from(TABLE_CAPTURES).select {
+            filter { eq("landmark_id", landmarkId) }
+            order("captured_at", Order.DESCENDING)
+            order("created_at", Order.DESCENDING)
+            limit(1)
+        }.decodeList<CaptureRow>().firstOrNull()
+
+    suspend fun fetchCapturesByLandmark(landmarkId: Long): List<CaptureRow> =
+        supabaseClient.from(TABLE_CAPTURES).select {
+            filter { eq("landmark_id", landmarkId) }
+            order("captured_at", Order.DESCENDING)
+            order("created_at", Order.DESCENDING)
+        }.decodeList()
+
+    suspend fun fetchLatestContestByLandmark(landmarkId: Long): ContestRow? =
+        supabaseClient.from(TABLE_LANDMARK_CONTESTS).select {
+            filter { eq("landmark_id", landmarkId) }
+            order("created_at", Order.DESCENDING)
+            limit(1)
+        }.decodeList<ContestRow>().firstOrNull()
+
+    suspend fun fetchContestsByLandmark(landmarkId: Long): List<ContestRow> =
+        supabaseClient.from(TABLE_LANDMARK_CONTESTS).select {
+            filter { eq("landmark_id", landmarkId) }
+            order("created_at", Order.DESCENDING)
+        }.decodeList<ContestRow>()
+
+    suspend fun insertContest(row: ContestInsert) {
+        supabaseClient.from(TABLE_LANDMARK_CONTESTS).insert(row)
+    }
 
     suspend fun fetchCapturedLandmarkIdsByUser(userId: Long): List<Long> =
         supabaseClient.from(TABLE_CAPTURES).select {

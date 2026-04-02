@@ -200,6 +200,27 @@ data class CollectedLandmark(
     val capturedAtIso: String
 )
 
+data class LandmarkOwnershipSummary(
+    val placeId: String,
+    val firstDiscovererUserId: Long? = null,
+    val firstDiscovererName: String? = null,
+    val mostRecentCapturerUserId: Long? = null,
+    val mostRecentCapturerName: String? = null,
+    val mostRecentCaptureAtIso: String? = null,
+    val currentLeaderUserId: Long? = null,
+    val currentLeaderName: String? = null,
+    val currentLeaderContestScore: Int = 0,
+    val currentLeaderLastContestAtIso: String? = null
+)
+
+data class LandmarkLeaderboardEntry(
+    val userId: Long,
+    val authUserId: String,
+    val displayName: String,
+    val score: Int,
+    val lastEventAtIso: String?
+)
+
 data class ZoneOwnership(
     val zoneId: String,
     val ownerUserId: String,

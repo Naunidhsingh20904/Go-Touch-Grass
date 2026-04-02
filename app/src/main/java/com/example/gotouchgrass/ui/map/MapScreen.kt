@@ -63,6 +63,8 @@ import com.example.gotouchgrass.data.FakeMapRepository
 import com.example.gotouchgrass.data.FakeProfileRepository
 import com.example.gotouchgrass.data.GoTouchGrassRepository
 import com.example.gotouchgrass.domain.CollectedLandmark
+import com.example.gotouchgrass.domain.LandmarkLeaderboardEntry
+import com.example.gotouchgrass.domain.LandmarkOwnershipSummary
 import com.example.gotouchgrass.domain.MapModel
 import com.example.gotouchgrass.domain.RouteStopMapMarker
 import com.example.gotouchgrass.location.AppLocationTracker
@@ -163,6 +165,15 @@ private fun formatCaptureTimestamp(isoTimestamp: String?): String? {
             null
         }
     }
+}
+
+private fun contestCooldownRemainingMinutes(lastCaptureIso: String?): Long {
+    if (lastCaptureIso.isNullOrBlank()) return 0L
+    val lastCaptureAt = runCatching { OffsetDateTime.parse(lastCaptureIso) }.getOrNull() ?: return 0L
+    val cooldownUntil = lastCaptureAt.plusMinutes(GoTouchGrassRepository.CONTEST_COOLDOWN_MINUTES)
+    val remainingSeconds = java.time.Duration.between(OffsetDateTime.now(), cooldownUntil).seconds
+    if (remainingSeconds <= 0L) return 0L
+    return (remainingSeconds + 59L) / 60L
 }
 
 @Composable
@@ -272,6 +283,12 @@ fun MapScreen(
     var isResolvingPoiInfo by remember { mutableStateOf(false) }
     var selectedPoiPhoto by remember { mutableStateOf<Bitmap?>(null) }
     var captureTimestamp by remember { mutableStateOf<String?>(null) }
+    var landmarkOwnershipSummary by remember { mutableStateOf<LandmarkOwnershipSummary?>(null) }
+    var leaderboardPlaceId by remember { mutableStateOf<String?>(null) }
+    var leaderboardPlaceName by remember { mutableStateOf<String?>(null) }
+    var landmarkLeaderboardEntries by remember { mutableStateOf<List<LandmarkLeaderboardEntry>>(emptyList()) }
+    var isLoadingLandmarkLeaderboard by remember { mutableStateOf(false) }
+    var landmarkLeaderboardError by remember { mutableStateOf<String?>(null) }
     var showCollectedOverlay by remember { mutableStateOf(false) }
     var collectedLandmarks by remember { mutableStateOf<List<CollectedLandmark>>(emptyList()) }
     var isLoadingCollectedLandmarks by remember { mutableStateOf(false) }
@@ -491,6 +508,39 @@ fun MapScreen(
 
         val result = repository.getLatestCaptureDateForPlaceId(currentUserId, poi.placeId)
         captureTimestamp = result.getOrNull()
+    }
+
+    LaunchedEffect(selectedPoi?.placeId, repository) {
+        val poi = selectedPoi
+        if (poi == null || repository == null) {
+            landmarkOwnershipSummary = null
+            return@LaunchedEffect
+        }
+
+        landmarkOwnershipSummary = repository.getLandmarkOwnershipSummaryByPlaceId(poi.placeId)
+            .getOrNull()
+    }
+
+    LaunchedEffect(leaderboardPlaceId, repository) {
+        val placeId = leaderboardPlaceId
+        if (placeId == null || repository == null) {
+            landmarkLeaderboardEntries = emptyList()
+            landmarkLeaderboardError = null
+            isLoadingLandmarkLeaderboard = false
+            return@LaunchedEffect
+        }
+
+        isLoadingLandmarkLeaderboard = true
+        landmarkLeaderboardError = null
+        repository.getLandmarkLeaderboardByPlaceId(placeId)
+            .onSuccess { rows ->
+                landmarkLeaderboardEntries = rows
+            }
+            .onFailure { error ->
+                landmarkLeaderboardEntries = emptyList()
+                landmarkLeaderboardError = error.message ?: "Unable to load leaderboard"
+            }
+        isLoadingLandmarkLeaderboard = false
     }
 
     captureTarget?.let { target ->
@@ -839,6 +889,12 @@ fun MapScreen(
                 distanceResult[0]
             }
             val isNearby = distanceMeters != null && distanceMeters <= CAPTURE_RADIUS_METERS
+            val isCaptured = capturedPlaceIds.contains(poi.placeId)
+            val contestCooldownMinutes = if (isCaptured) {
+                contestCooldownRemainingMinutes(captureTimestamp)
+            } else {
+                0L
+            }
             CapturePoiPopup(
                 selectedPoi = poi,
                 isResolvingPoiInfo = isResolvingPoiInfo,
@@ -847,9 +903,21 @@ fun MapScreen(
                 isMappingLandmark = isMappingLandmark,
                 isNearby = isNearby,
                 distanceMeters = distanceMeters,
-                isCaptured = capturedPlaceIds.contains(poi.placeId),
+                isCaptured = isCaptured,
                 captureTimestamp = captureTimestamp,
+                firstDiscovererName = landmarkOwnershipSummary?.firstDiscovererName,
+                currentLeaderName = landmarkOwnershipSummary?.currentLeaderName,
+                currentLeaderContestScore = landmarkOwnershipSummary?.currentLeaderContestScore ?: 0,
+                currentLeaderLastContestAtIso = landmarkOwnershipSummary?.currentLeaderLastContestAtIso,
+                mostRecentCapturerName = landmarkOwnershipSummary?.mostRecentCapturerName,
+                mostRecentCaptureTimestamp = landmarkOwnershipSummary?.mostRecentCaptureAtIso,
+                contestCooldownMinutes = contestCooldownMinutes,
                 mappingErrorMessage = mappingLandmarkError,
+                onViewLeaderboard = {
+                    leaderboardPlaceId = poi.placeId
+                    leaderboardPlaceName = poi.name
+                    selectedPoi = null
+                },
                 onMapLandmark = {
                     if (repository == null || currentUserId == null || isMappingLandmark) return@CapturePoiPopup
                     val selectedPlaceIdForRequest = poi.placeId
@@ -877,8 +945,34 @@ fun MapScreen(
                 },
                 onCapture = {
                     val alreadyCaptured = capturedPlaceIds.contains(poi.placeId)
-                    if (mappedInDbForSelectedPoi != true || alreadyCaptured) return@CapturePoiPopup
+                    if (mappedInDbForSelectedPoi != true) return@CapturePoiPopup
                     if (repository == null || currentUserId == null) return@CapturePoiPopup
+
+                    if (alreadyCaptured) {
+                        if (contestCooldownMinutes > 0L) return@CapturePoiPopup
+                        coroutineScope.launch {
+                            val contestResult = repository.recordCaptureByPlaceId(currentUserId, poi.placeId)
+                            if (contestResult.isSuccess) {
+                                capturedPlaceIds = capturedPlaceIds + poi.placeId
+                                tripViewModel?.onCapture(xpAwarded = 30)
+                                captureTimestamp = repository.getLatestCaptureDateForPlaceId(
+                                    currentUserId,
+                                    poi.placeId
+                                ).getOrNull()
+                                landmarkOwnershipSummary = repository
+                                    .getLandmarkOwnershipSummaryByPlaceId(poi.placeId)
+                                    .getOrNull()
+                                mappingLandmarkError = null
+                                viewModel?.refresh()
+                            } else {
+                                mappingLandmarkError =
+                                    contestResult.exceptionOrNull()?.message
+                                        ?: "Contest failed. Try again shortly."
+                            }
+                        }
+                        return@CapturePoiPopup
+                    }
+
                     coroutineScope.launch {
                         val mappingResult = repository.ensureLandmarkMappedForCapture(
                             userId = currentUserId,
@@ -900,6 +994,20 @@ fun MapScreen(
                     }
                 },
                 onClose = { selectedPoi = null })
+        }
+
+        if (leaderboardPlaceId != null) {
+            LandmarkLeaderboardOverlay(
+                placeName = leaderboardPlaceName ?: "Location Leaderboard",
+                entries = landmarkLeaderboardEntries,
+                currentUserId = currentUserId,
+                isLoading = isLoadingLandmarkLeaderboard,
+                errorMessage = landmarkLeaderboardError,
+                onClose = {
+                    leaderboardPlaceId = null
+                    leaderboardPlaceName = null
+                }
+            )
         }
 
         // --- Trip Celebration Overlay (casino-style XP reveal) ---
@@ -1362,7 +1470,15 @@ private fun CapturePoiPopup(
     distanceMeters: Float?,
     isCaptured: Boolean,
     captureTimestamp: String?,
+    firstDiscovererName: String?,
+    currentLeaderName: String?,
+    currentLeaderContestScore: Int,
+    currentLeaderLastContestAtIso: String?,
+    mostRecentCapturerName: String?,
+    mostRecentCaptureTimestamp: String?,
+    contestCooldownMinutes: Long,
     mappingErrorMessage: String?,
+    onViewLeaderboard: () -> Unit,
     onMapLandmark: () -> Unit,
     onCapture: () -> Unit,
     onClose: () -> Unit
@@ -1414,13 +1530,37 @@ private fun CapturePoiPopup(
                     )
                 }
 
+                if (isMapped == true) {
+                    val firstDiscovererLabel = firstDiscovererName ?: "Unknown"
+                    Text(
+                        text = "First discovered by $firstDiscovererLabel",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    val leaderLabel = currentLeaderName ?: "No leader yet"
+                    Text(
+                        text = "Current leader: $leaderLabel ($currentLeaderContestScore pts)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    val mostRecentLabel = mostRecentCapturerName ?: "No captures yet"
+                    val formattedMostRecentTime = formatCaptureTimestamp(mostRecentCaptureTimestamp)
+                    val mostRecentDetails = if (formattedMostRecentTime != null && mostRecentCapturerName != null) {
+                        "$mostRecentLabel at $formattedMostRecentTime"
+                    } else {
+                        mostRecentLabel
+                    }
+                }
+
                 // Show capture timestamp if already captured
                 if (isCaptured && captureTimestamp != null) {
                     Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingXs))
                     val formattedTime = formatCaptureTimestamp(captureTimestamp)
                     if (formattedTime != null) {
                         Text(
-                            text = "Captured: $formattedTime",
+                            text = "You captured this landmark $formattedTime",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1445,7 +1585,7 @@ private fun CapturePoiPopup(
                         enabled = if (shouldShowMapLandmarkAction) {
                             !isResolvingPoiInfo && !isResolvingMapping && !isMappingLandmark
                         } else {
-                            !isResolvingMapping && !isMappingLandmark && isMapped == true && isNearby && !isCaptured
+                            !isResolvingMapping && !isMappingLandmark && isMapped == true && isNearby && (!isCaptured || contestCooldownMinutes == 0L)
                         },
                         modifier = Modifier.weight(1f)
                     ) {
@@ -1454,7 +1594,8 @@ private fun CapturePoiPopup(
                                 isResolvingPoiInfo || isResolvingMapping || isMapped == null -> "Loading"
                                 isMappingLandmark -> "Mapping..."
                                 !isMapped -> "Map Landmark"
-                                isCaptured -> "Captured"
+                                isCaptured && contestCooldownMinutes > 0L -> "Cooldown ${contestCooldownMinutes} min"
+                                isCaptured -> "Claim Points"
                                 isNearby -> "Capture"
                                 else -> "Not Nearby"
                             }
@@ -1466,6 +1607,105 @@ private fun CapturePoiPopup(
                     ) {
                         Text("Close")
                     }
+                }
+
+                if (isMapped == true) {
+                    OutlinedButton(
+                        onClick = onViewLeaderboard,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("View Location Leaderboard")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LandmarkLeaderboardOverlay(
+    placeName: String,
+    entries: List<LandmarkLeaderboardEntry>,
+    currentUserId: String?,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onClose: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f))
+            .clickable { onClose() }
+    ) {
+        Card(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(GoTouchGrassDimens.SpacingMd),
+            shape = RoundedCornerShape(GoTouchGrassDimens.RadiusLarge),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(GoTouchGrassDimens.SpacingMd),
+                verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)
+            ) {
+                Text(
+                    text = placeName,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "Location Leaderboard",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                when {
+                    isLoading -> Text(
+                        text = "Loading leaderboard...",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    !errorMessage.isNullOrBlank() -> Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+
+                    entries.isEmpty() -> Text(
+                        text = "No leaderboard activity yet.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    else -> {
+                        entries.forEachIndexed { index, entry ->
+                            val isCurrentUser = currentUserId != null && entry.authUserId == currentUserId
+                            val displayName = if (isCurrentUser) "YOU" else entry.displayName
+                            val lastEvent = formatCaptureTimestamp(entry.lastEventAtIso)
+                            val subtitle = if (lastEvent != null) {
+                                "${entry.score} pts · last event $lastEvent"
+                            } else {
+                                "${entry.score} pts"
+                            }
+                            Text(
+                                text = "${index + 1}. $displayName",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (isCurrentUser) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                            Text(
+                                text = subtitle,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = onClose,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Close")
                 }
             }
         }
