@@ -19,7 +19,17 @@ Naunidh Singh: n36singh@uwaterloo.ca
 
 Taylor Smith: t62smith@uwaterloo.ca
 
-## Content
+## Our Project
+
+[TODO INSERT MAIN SCREEN SCREENSHOT]
+
+[TODO INSERT VIDEO DEMO]
+
+## Acknowledgements
+
+## Releases
+
+## Project Information
 
 - Our [team contract](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Team-Contract) includes
   details on how we will work together
@@ -27,5 +37,19 @@ Taylor Smith: t62smith@uwaterloo.ca
   associated demo slides
 - Our [meeting minutes](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Meeting-Minutes) track
   our twice-weekly group meetings
+- Our [team reflections](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Team-Reflections) includes our perspective on the project term
+
+## User Guide
+
+[TODO GETTING STARTED WIKI](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Getting-Started)
+
+[TODO USAGE GUIDE WIKI](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Usage-Guide)
+
+## Design Documents
 - Our [database schema](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Database-Schema) shows a
-  diagram of our tables and their key relationships
+  diagram of our tables and their key relationships (TODO UPLOAD UPDATED DIAGRAM)
+- Our [class diagrams](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Class-Diagram) shows a diagram of the main classes in our application
+
+## Grading Instructions
+
+[TODO GOOGLE MAPS API KEY SETUP INSTRUCTIONS]
