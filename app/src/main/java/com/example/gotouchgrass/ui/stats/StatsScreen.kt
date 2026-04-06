@@ -559,7 +559,7 @@ fun GlobalLeaderboard(
                 ) {
                     Text(text = "🏆", fontSize = 24.sp)
                     Text(
-                        text = "Friend Leaderboard",
+                        text = "Global Leaderboard",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold
                     )
