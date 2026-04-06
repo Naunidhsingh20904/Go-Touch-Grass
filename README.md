@@ -21,7 +21,9 @@ Taylor Smith: t62smith@uwaterloo.ca
 
 ## Our Project
 
-[TODO INSERT MAIN SCREEN SCREENSHOT]
+<!-- ![Home screen](Home_screen.png) -->
+<img src="Home_screen.png" width="200" height="">
+
 
 [TODO INSERT VIDEO DEMO]
 
