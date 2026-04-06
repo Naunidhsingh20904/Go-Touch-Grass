@@ -520,8 +520,27 @@ open class GoTouchGrassRepository(
 
     suspend fun getCompletedChallengesCount(userId: String): Result<Int> = runCatching {
         val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching 0
-        dataSource.fetchChallengeProgress(userRow.id)
-            .count { !it.completedAt.isNullOrBlank() }
+        val idByLookupKey = runCatching { resolveHardcodedChallengeIds() }.getOrDefault(emptyMap())
+        var count = 0
+        for (timeWindow in ChallengeTimeWindow.entries) {
+            val periodStartIso = currentChallengePeriodStartIso(timeWindow)
+            val progressMap = runCatching {
+                dataSource.fetchChallengeProgress(userRow.id)
+                    .filter { it.periodStartIso == periodStartIso }
+                    .associateBy { it.challengeId }
+            }.getOrDefault(emptyMap())
+            val fallbackVisitProgress = runCatching {
+                countCapturesInPeriod(userRow.id, timeWindow).toDouble()
+            }.getOrDefault(0.0)
+            hardcodedChallenges.filter { it.timeWindow == timeWindow }.forEach { definition ->
+                val challengeId = idByLookupKey[challengeLookupKey(definition.timeWindow, definition.title)]
+                val storedProgress = challengeId?.let { progressMap[it]?.progressValue } ?: 0.0
+                val progressValue = if (definition.challengeType == ChallengeType.VISIT && storedProgress <= 0.0)
+                    fallbackVisitProgress else storedProgress
+                if (progressValue >= definition.targetValue) count++
+            }
+        }
+        count
     }
 
     suspend fun getRecentActivity(userId: String, limit: Int = 10): Result<List<com.example.gotouchgrass.domain.RecentActivity>> = runCatching {
