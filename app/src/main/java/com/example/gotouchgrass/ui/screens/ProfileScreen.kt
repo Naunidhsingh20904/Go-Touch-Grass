@@ -644,7 +644,7 @@ private fun ActivityRow(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(GoTouchGrassDimens.RadiusMedium),
-        color = SandLight
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
             modifier = Modifier.padding(GoTouchGrassDimens.SpacingMd),

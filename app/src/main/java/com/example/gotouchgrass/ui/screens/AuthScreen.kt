@@ -51,7 +51,7 @@ fun AuthScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(WarmCream)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -116,7 +116,7 @@ private fun HeaderSection(modifier: Modifier = Modifier) {
                 fontWeight = FontWeight.Bold,
                 fontSize = 32.sp
             ),
-            color = TextPrimary,
+            color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
 
@@ -126,7 +126,7 @@ private fun HeaderSection(modifier: Modifier = Modifier) {
         Text(
             text = "Discover your world. Capture landmarks.\nEarn rewards for exploring.",
             style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             lineHeight = 22.sp
         )
@@ -197,12 +197,12 @@ private fun FeatureChips() {
 private fun FeatureChip(text: String) {
     Surface(
         shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
-        color = SandLight
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
-            color = TextPrimary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(
                 horizontal = GoTouchGrassDimens.SpacingMd,
                 vertical = GoTouchGrassDimens.SpacingSm
@@ -234,7 +234,7 @@ private fun FormCard(
             topStart = GoTouchGrassDimens.RadiusXLarge,
             topEnd = GoTouchGrassDimens.RadiusXLarge
         ),
-        color = WarmWhite,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = GoTouchGrassDimens.ElevationHigh
     ) {
         Column(
@@ -338,7 +338,7 @@ private fun FormCard(
                     Text(
                         text = "Forgot your password? ",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "Reset it",
@@ -363,7 +363,7 @@ private fun TabSwitcher(
 ) {
     Surface(
         shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
-        color = SandLight
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
             modifier = Modifier.padding(GoTouchGrassDimens.SpacingXs)
@@ -403,7 +403,7 @@ private fun TabButton(
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
             ),
-            color = if (isSelected) WarmWhite else TextPrimary,
+            color = if (isSelected) WarmWhite else MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(
                 horizontal = GoTouchGrassDimens.SpacingLg,
@@ -429,7 +429,7 @@ private fun AuthTextField(
             style = MaterialTheme.typography.titleSmall.copy(
                 fontWeight = FontWeight.Bold
             ),
-            color = TextPrimary
+            color = MaterialTheme.colorScheme.onSurface
         )
 
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingSm))
@@ -440,14 +440,14 @@ private fun AuthTextField(
             placeholder = {
                 Text(
                     text = placeholder,
-                    color = TextMuted
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             leadingIcon = {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = TextMuted,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
             },
@@ -455,8 +455,10 @@ private fun AuthTextField(
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             shape = RoundedCornerShape(GoTouchGrassDimens.RadiusMedium),
             colors = OutlinedTextFieldDefaults.colors(
-                unfocusedContainerColor = SandLight,
-                focusedContainerColor = SandLight,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
                 unfocusedBorderColor = Color.Transparent,
                 focusedBorderColor = ForestGreen,
                 cursorColor = ForestGreen
