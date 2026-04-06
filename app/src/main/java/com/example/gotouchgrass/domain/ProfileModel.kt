@@ -42,5 +42,8 @@ class ProfileModel(
 
     suspend fun getCompletedChallengesCount(): Int =
         repository.getCompletedChallengesCount(currentUserId).getOrElse { 0 }
+
+    suspend fun getBadges(): List<BadgeStatus> =
+        repository.getBadges(currentUserId).getOrNull() ?: emptyList()
 }
 

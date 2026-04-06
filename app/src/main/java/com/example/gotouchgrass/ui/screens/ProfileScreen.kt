@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,10 +40,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.example.gotouchgrass.ui.map.ConfettiCanvas
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,10 +63,17 @@ import com.example.gotouchgrass.ui.theme.*
 fun ProfileScreen(
     viewModel: ProfileViewModel,
     onSettingsClick: () -> Unit = {},
-    onFindFriendsClick: () -> Unit = {}
+    onFindFriendsClick: () -> Unit = {},
+    onViewAllBadgesClick: () -> Unit = {}
 ) {
-    var showAllBadgesDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(viewModel.newlyUnlockedBadgeName) {
+        if (viewModel.newlyUnlockedBadgeName != null) {
+            delay(4000)
+            viewModel.consumeBadgeConfetti()
+        }
+    }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -104,7 +115,7 @@ fun ProfileScreen(
         // Badges Section
         BadgesSection(
             badges = viewModel.badges,
-            onViewAll = { showAllBadgesDialog = true }
+            onViewAll = onViewAllBadgesClick
         )
 
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingMd))
@@ -120,12 +131,10 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingLg))
     }
 
-    if (showAllBadgesDialog) {
-        AllBadgesDialog(
-            badges = viewModel.badges,
-            onDismiss = { showAllBadgesDialog = false }
-        )
+    if (viewModel.newlyUnlockedBadgeName != null) {
+        ConfettiCanvas(modifier = Modifier.fillMaxSize())
     }
+    } // end Box
 }
 
 @Composable
@@ -396,14 +405,17 @@ private fun StatCard(
     }
 }
 
-private val badgeIcons = listOf(
-    Icons.Default.ThumbUp,
-    Icons.Default.Place,
-    Icons.Default.Star,
-    Icons.Default.Place,
-    Icons.Default.Favorite,
-    Icons.Default.Star
-)
+private fun badgeIconForKey(key: String) = when (key) {
+    "location_on"  -> Icons.Default.LocationOn
+    "star"         -> Icons.Default.Star
+    "explore"      -> Icons.Default.Place
+    "thumb_up"     -> Icons.Default.ThumbUp
+    "favorite"     -> Icons.Default.Favorite
+    "trending_up"  -> Icons.Default.TrendingUp
+    "date_range"   -> Icons.Default.DateRange
+    "place"        -> Icons.Default.Place
+    else           -> Icons.Default.Star
+}
 
 @Composable
 private fun BadgesSection(
@@ -440,14 +452,12 @@ private fun BadgesSection(
                     )
                 }
 
-                if (badges.size > 6) {
-                    TextButton(onClick = onViewAll) {
-                        Text(
-                            text = "View All >",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = ForestGreen
-                        )
-                    }
+                TextButton(onClick = onViewAll) {
+                    Text(
+                        text = "View All >",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ForestGreen
+                    )
                 }
             }
 
@@ -459,9 +469,9 @@ private fun BadgesSection(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    displayBadges.take(3).forEachIndexed { index, badge ->
+                    displayBadges.take(3).forEach { badge ->
                         BadgeItem(
-                            icon = badgeIcons.getOrElse(index) { Icons.Default.Star },
+                            icon = badgeIconForKey(badge.iconKey),
                             name = badge.name,
                             isUnlocked = badge.isUnlocked
                         )
@@ -471,9 +481,9 @@ private fun BadgesSection(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    displayBadges.drop(3).forEachIndexed { index, badge ->
+                    displayBadges.drop(3).forEach { badge ->
                         BadgeItem(
-                            icon = badgeIcons.getOrElse(3 + index) { Icons.Default.Star },
+                            icon = badgeIconForKey(badge.iconKey),
                             name = badge.name,
                             isUnlocked = badge.isUnlocked
                         )

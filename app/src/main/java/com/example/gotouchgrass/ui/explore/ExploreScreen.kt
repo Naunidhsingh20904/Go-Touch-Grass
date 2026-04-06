@@ -32,6 +32,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.example.gotouchgrass.ui.map.ConfettiCanvas
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -62,6 +64,13 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
         val message = viewModel.pendingChallengeSnackbarMessage ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(message)
         viewModel.consumeChallengeSnackbarMessage()
+    }
+
+    LaunchedEffect(viewModel.showChallengeConfetti) {
+        if (viewModel.showChallengeConfetti) {
+            delay(4000)
+            viewModel.consumeChallengeConfetti()
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -206,6 +215,10 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
                 .align(Alignment.BottomCenter)
                 .padding(GoTouchGrassDimens.SpacingMd)
         )
+
+        if (viewModel.showChallengeConfetti) {
+            ConfettiCanvas(modifier = Modifier.fillMaxSize())
+        }
     }
 
     selectedRoute?.let { route ->

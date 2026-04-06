@@ -15,6 +15,9 @@ import com.example.gotouchgrass.domain.ChallengeType
 import com.example.gotouchgrass.domain.CollectedLandmark
 import com.example.gotouchgrass.domain.ExploreChallengeItem
 import com.example.gotouchgrass.domain.ExploreRouteItem
+import com.example.gotouchgrass.domain.ALL_BADGES
+import com.example.gotouchgrass.domain.BadgeRuleType
+import com.example.gotouchgrass.domain.BadgeStatus
 import com.example.gotouchgrass.domain.FriendMapMarker
 import com.example.gotouchgrass.domain.LatLng
 import com.example.gotouchgrass.domain.LandmarkOwnershipSummary
@@ -1270,5 +1273,32 @@ open class GoTouchGrassRepository(
     suspend fun getFriendsLeaderboard(authUserId: String): Result<List<User>> = runCatching {
         val friends = getFriends(authUserId).getOrThrow()
         friends.sortedByDescending { it.xpTotal }
+    }
+
+    suspend fun getUserBadges(authUserId: String): Result<List<BadgeStatus>> = runCatching {
+        val userRow = dataSource.getUserRowByAuthId(authUserId)
+            ?: return@runCatching emptyList()
+        val totalCaptures = getTotalCapturedLandmarks(authUserId).getOrElse { 0 }
+        val friendCount = dataSource.getUserFriends(userRow.id).size
+        val level = (userRow.xpTotal / 1000 + 1).toInt()
+        val streakDays = getStreakData(authUserId).getOrElse { StreakData(0, 0) }.currentDays
+        val zonesVisited = getWeeklySummary(authUserId).getOrElse { null }?.zonesVisited ?: 0
+
+        ALL_BADGES.map { badge ->
+            val value = when (badge.ruleType) {
+                BadgeRuleType.CAPTURES -> totalCaptures
+                BadgeRuleType.FRIENDS -> friendCount
+                BadgeRuleType.LEVEL -> level
+                BadgeRuleType.STREAK_DAYS -> streakDays
+                BadgeRuleType.ZONES_VISITED -> zonesVisited
+            }
+            BadgeStatus(
+                id = badge.id,
+                name = badge.name,
+                description = badge.description,
+                iconKey = badge.iconKey,
+                isUnlocked = value >= badge.threshold
+            )
+        }
     }
 }
