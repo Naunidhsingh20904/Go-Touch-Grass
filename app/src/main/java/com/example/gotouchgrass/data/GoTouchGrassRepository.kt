@@ -16,7 +16,7 @@ import com.example.gotouchgrass.domain.CollectedLandmark
 import com.example.gotouchgrass.domain.ExploreChallengeItem
 import com.example.gotouchgrass.domain.ExploreRouteItem
 import com.example.gotouchgrass.domain.ALL_BADGES
-import com.example.gotouchgrass.domain.BadgeRuleType
+import com.example.gotouchgrass.domain.BadgeThresholdType
 import com.example.gotouchgrass.domain.BadgeStatus
 import com.example.gotouchgrass.domain.FriendMapMarker
 import com.example.gotouchgrass.domain.LatLng
@@ -1286,11 +1286,11 @@ open class GoTouchGrassRepository(
 
         ALL_BADGES.map { badge ->
             val value = when (badge.ruleType) {
-                BadgeRuleType.CAPTURES -> totalCaptures
-                BadgeRuleType.FRIENDS -> friendCount
-                BadgeRuleType.LEVEL -> level
-                BadgeRuleType.STREAK_DAYS -> streakDays
-                BadgeRuleType.ZONES_VISITED -> zonesVisited
+                BadgeThresholdType.CAPTURES -> totalCaptures
+                BadgeThresholdType.FRIENDS -> friendCount
+                BadgeThresholdType.LEVEL -> level
+                BadgeThresholdType.STREAK_DAYS -> streakDays
+                BadgeThresholdType.ZONES_VISITED -> zonesVisited
             }
             BadgeStatus(
                 id = badge.id,
