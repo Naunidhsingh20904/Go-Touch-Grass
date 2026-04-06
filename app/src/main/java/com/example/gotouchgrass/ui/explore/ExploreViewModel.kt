@@ -101,6 +101,11 @@ class ExploreViewModel(
     var pendingChallengeSnackbarMessage by mutableStateOf<String?>(null)
         private set
 
+    var showChallengeConfetti by mutableStateOf(false)
+        private set
+
+    fun consumeChallengeConfetti() { showChallengeConfetti = false }
+
     private var hasLoadedAtLeastOnce = false
     private var previousProgressByChallengeId: Map<String, Float> = emptyMap()
 
@@ -131,6 +136,7 @@ class ExploreViewModel(
                     if (newlyCompleted.isNotEmpty()) {
                         pendingChallengeSnackbarMessage =
                             "Challenge completed: ${newlyCompleted.joinToString(", ") { it.title }}"
+                        showChallengeConfetti = true
                     }
                 }
 

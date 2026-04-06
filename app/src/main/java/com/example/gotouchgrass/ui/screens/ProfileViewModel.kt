@@ -66,10 +66,23 @@ class ProfileViewModel(
     var challengesDone by mutableStateOf("0")
         private set
 
-    data class ProfileBadgeDisplay(val name: String, val isUnlocked: Boolean)
+    data class ProfileBadgeDisplay(
+        val name: String,
+        val description: String,
+        val iconKey: String,
+        val isUnlocked: Boolean
+    )
 
     var badges by mutableStateOf<List<ProfileBadgeDisplay>>(emptyList())
         private set
+
+    var newlyUnlockedBadgeName by mutableStateOf<String?>(null)
+        private set
+
+    private var previouslyUnlockedBadgeIds: Set<String> = emptySet()
+    private var hasBadgesLoadedOnce = false
+
+    fun consumeBadgeConfetti() { newlyUnlockedBadgeName = null }
 
     data class ActivityItemDisplay(val name: String, val timeAgo: String, val xpText: String)
 
@@ -103,6 +116,7 @@ class ProfileViewModel(
                 val totalCaptured = model.getTotalCapturedLandmarks()
                 val completedChallenges = model.getCompletedChallengesCount()
                 val recentActivityData = model.getRecentActivity()
+                val badgeStatuses = model.getBadges()
 
                 applyUser(user)
                 applyStreak(streakData)
@@ -117,6 +131,20 @@ class ProfileViewModel(
                         timeAgo = timeAgoFrom(activity.capturedAtIso),
                         xpText = "+${activity.xpAwarded} XP"
                     )
+                }
+
+                if (hasBadgesLoadedOnce) {
+                    val newUnlocks = badgeStatuses.filter {
+                        it.isUnlocked && it.id !in previouslyUnlockedBadgeIds
+                    }
+                    if (newUnlocks.isNotEmpty()) {
+                        newlyUnlockedBadgeName = newUnlocks.first().name
+                    }
+                }
+                previouslyUnlockedBadgeIds = badgeStatuses.filter { it.isUnlocked }.map { it.id }.toSet()
+                hasBadgesLoadedOnce = true
+                badges = badgeStatuses.map {
+                    ProfileBadgeDisplay(it.name, it.description, it.iconKey, it.isUnlocked)
                 }
             }.onFailure { error ->
                 errorMessage = error.message ?: "Failed to load profile data"
