@@ -26,6 +26,7 @@ interface ProfileRepository {
     suspend fun getFriends(userId: String): Result<List<User>>
     suspend fun getTotalCapturedLandmarks(userId: String): Result<Int>
     suspend fun getRecentActivity(userId: String): Result<List<RecentActivity>>
+    suspend fun getCompletedChallengesCount(userId: String): Result<Int>
 }
 
 /**
@@ -61,6 +62,9 @@ class SupabaseProfileRepository(
 
     override suspend fun getRecentActivity(userId: String): Result<List<RecentActivity>> =
         repository.getRecentActivity(userId)
+
+    override suspend fun getCompletedChallengesCount(userId: String): Result<Int> =
+        repository.getCompletedChallengesCount(userId)
 }
 
 /**
@@ -126,5 +130,7 @@ class FakeProfileRepository : ProfileRepository {
     override suspend fun getRecentActivity(userId: String): Result<List<RecentActivity>> = runCatching {
         emptyList()
     }
+
+    override suspend fun getCompletedChallengesCount(userId: String): Result<Int> = runCatching { 0 }
 }
 

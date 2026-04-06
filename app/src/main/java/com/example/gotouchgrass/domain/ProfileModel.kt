@@ -39,5 +39,8 @@ class ProfileModel(
 
     suspend fun getRecentActivity(): List<RecentActivity> =
         repository.getRecentActivity(currentUserId).getOrNull() ?: emptyList()
+
+    suspend fun getCompletedChallengesCount(): Int =
+        repository.getCompletedChallengesCount(currentUserId).getOrElse { 0 }
 }
 

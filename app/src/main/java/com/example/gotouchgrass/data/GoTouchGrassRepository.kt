@@ -514,6 +514,12 @@ open class GoTouchGrassRepository(
         getCollectedLandmarks(userId).getOrThrow().size
     }
 
+    suspend fun getCompletedChallengesCount(userId: String): Result<Int> = runCatching {
+        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching 0
+        dataSource.fetchChallengeProgress(userRow.id)
+            .count { !it.completedAt.isNullOrBlank() }
+    }
+
     suspend fun getRecentActivity(userId: String, limit: Int = 10): Result<List<com.example.gotouchgrass.domain.RecentActivity>> = runCatching {
         val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching emptyList()
         val captures = dataSource.fetchCapturesByUser(userRow.id)
@@ -761,8 +767,8 @@ open class GoTouchGrassRepository(
         )
         LifetimeStats(
             totalXp = user.xpTotal,
-            totalDistanceKm = 0f,   // TODO: compute from visit_session table when available
-            citiesExplored = 0      // TODO: compute from city_completion table when available
+            totalDistanceKm = 0f,
+            citiesExplored = 0
         )
     }
 

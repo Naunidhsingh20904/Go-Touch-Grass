@@ -101,6 +101,7 @@ class ProfileViewModel(
                 val weeklySummary = model.getWeeklySummary()
                 val friends = model.getFriends()
                 val totalCaptured = model.getTotalCapturedLandmarks()
+                val completedChallenges = model.getCompletedChallengesCount()
                 val recentActivityData = model.getRecentActivity()
 
                 applyUser(user)
@@ -109,6 +110,7 @@ class ProfileViewModel(
                 applyWeeklySummary(weeklySummary)
                 applyFriends(friends)
                 zonesOwned = totalCaptured.toString()
+                challengesDone = completedChallenges.toString()
                 recentActivity = recentActivityData.map { activity ->
                     ActivityItemDisplay(
                         name = activity.displayName,

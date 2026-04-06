@@ -162,11 +162,11 @@ fun WeeklySummaryCard(
 
     val stat1Value = when (period) {
         StatsPeriod.THIS_WEEK -> viewModel.weeklySummary.timeOutside
-        StatsPeriod.ALL_TIME -> "${viewModel.lifetimeStats.totalDistanceKm.toInt()} km"
+        StatsPeriod.ALL_TIME -> "${viewModel.streak.bestDays} days"
     }
     val stat1Label = when (period) {
         StatsPeriod.THIS_WEEK -> "Time Outside"
-        StatsPeriod.ALL_TIME -> "Total Distance"
+        StatsPeriod.ALL_TIME -> "Best Streak"
     }
 
     val stat2Value = when (period) {
@@ -485,12 +485,12 @@ fun LifetimeStatsCard(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Total Distance",
+                            text = "Best Streak",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.Gray
                         )
                         Text(
-                            text = "${viewModel.lifetimeStats.totalDistanceKm.toInt()} km",
+                            text = "${viewModel.streak.bestDays} days",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -508,12 +508,12 @@ fun LifetimeStatsCard(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Cities Explored",
+                            text = "Level",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.Gray
                         )
                         Text(
-                            text = viewModel.lifetimeStats.citiesExplored.toString(),
+                            text = "${(viewModel.lifetimeStats.totalXp / 1000) + 1}",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
