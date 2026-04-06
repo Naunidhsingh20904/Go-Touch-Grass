@@ -790,16 +790,17 @@ open class GoTouchGrassRepository(
         val userRow =
             dataSource.getUserRowByAuthId(userId) ?: return@runCatching defaultWeeklySummary()
 
-        val weekStartIso =
-            LocalDate.now(ZoneOffset.UTC).with(DayOfWeek.MONDAY).atStartOfDay(ZoneOffset.UTC)
-                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        // Rolling 7-day window so recent activity always shows regardless of when the calendar week resets
+        val windowStartIso = OffsetDateTime.now(ZoneOffset.UTC).minusDays(7)
+            .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 
-        val sessions = dataSource.fetchWeeklyVisitSessions(userRow.id, weekStartIso)
-        if (sessions.isEmpty()) return@runCatching defaultWeeklySummary()
+        val sessions = dataSource.fetchWeeklyVisitSessions(userRow.id, windowStartIso)
 
         val totalSec = sessions.sumOf { it.durationSec }
         val totalHours = totalSec / 3600.0
-        val timeOutside = if (totalHours < 1) "${totalSec / 60}m" else "%.1fh".format(totalHours)
+        val timeOutside = if (totalSec == 0L) "0h"
+            else if (totalHours < 1) "${totalSec / 60}m"
+            else "%.1fh".format(totalHours)
 
         val zonesVisited = sessions.mapNotNull { it.zoneId }.distinct().size
 
@@ -813,7 +814,7 @@ open class GoTouchGrassRepository(
         val maxSec = dailySeconds.max().takeIf { it > 0 } ?: 1L
         val dailyActivity = dailySeconds.map { (it.toFloat() / maxSec).coerceIn(0f, 1f) }
 
-        val weeklyCaptures = dataSource.fetchWeeklyCaptures(userRow.id, weekStartIso)
+        val weeklyCaptures = dataSource.fetchWeeklyCaptures(userRow.id, windowStartIso)
         val weeklyXp = weeklyCaptures.sumOf { it.xpAwarded }
 
         WeeklySummary(
