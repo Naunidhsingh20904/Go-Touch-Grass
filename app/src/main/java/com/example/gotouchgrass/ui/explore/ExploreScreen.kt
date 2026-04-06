@@ -44,7 +44,6 @@ import com.example.gotouchgrass.ui.theme.ForestGreen
 import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
 import com.example.gotouchgrass.ui.theme.GoldenYellow
 import com.example.gotouchgrass.ui.theme.GoldenYellowDark
-import com.example.gotouchgrass.ui.theme.SandLight
 import com.example.gotouchgrass.ui.theme.XpBarStart
 
 
@@ -97,7 +96,7 @@ fun ExploreScreen(viewModel: ExploreViewModel) {
 
                 Surface(
                     shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
-                    color = SandLight
+                    color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Row(
                         modifier = Modifier.padding(
@@ -249,7 +248,7 @@ fun ChallengeCard(
     ElevatedCard(
         colors = CardDefaults.elevatedCardColors(
             containerColor = if (card.isCompleted) {
-                SandLight
+                MaterialTheme.colorScheme.surfaceVariant
             } else {
                 MaterialTheme.colorScheme.surface
             }
@@ -310,7 +309,7 @@ fun ChallengeCard(
                         } else {
                             XpBarStart
                         },
-                        trackColor = SandLight,
+                        trackColor = MaterialTheme.colorScheme.outlineVariant,
                         drawStopIndicator = { }
                     )
 
@@ -487,7 +486,7 @@ fun RouteCard(
                     // Show difficulty
                     Surface(
                         shape = RoundedCornerShape(GoTouchGrassDimens.RadiusFull),
-                        color = SandLight
+                        color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Text(
                             text = card.difficulty.name,

@@ -492,13 +492,13 @@ private fun BadgeItem(
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(if (isUnlocked) ForestGreen else SandMuted),
+                .background(if (isUnlocked) ForestGreen else MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = name,
-                tint = if (isUnlocked) WarmWhite else TextMuted,
+                tint = if (isUnlocked) WarmWhite else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -746,7 +746,7 @@ private fun FriendsSection(friendInitials: List<String>, onFindFriendsClick: () 
                         modifier = Modifier
                             .size(48.dp)
                             .clip(CircleShape)
-                            .background(SandMuted),
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
