@@ -571,9 +571,9 @@ private fun AllBadgesDialog(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            rowBadges.forEachIndexed { index, badge ->
+                            rowBadges.forEach { badge ->
                                 BadgeItem(
-                                    icon = badgeIcons.getOrElse(index) { Icons.Default.Star },
+                                    icon = badgeIconForKey(badge.iconKey),
                                     name = badge.name,
                                     isUnlocked = badge.isUnlocked
                                 )
