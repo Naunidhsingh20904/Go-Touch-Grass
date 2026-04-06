@@ -463,31 +463,16 @@ private fun BadgesSection(
 
             Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingSm))
 
-            val displayBadges = badges.take(6)
-            Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    displayBadges.take(3).forEach { badge ->
-                        BadgeItem(
-                            icon = badgeIconForKey(badge.iconKey),
-                            name = badge.name,
-                            isUnlocked = badge.isUnlocked
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    displayBadges.drop(3).forEach { badge ->
-                        BadgeItem(
-                            icon = badgeIconForKey(badge.iconKey),
-                            name = badge.name,
-                            isUnlocked = badge.isUnlocked
-                        )
-                    }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                badges.take(3).forEach { badge ->
+                    BadgeItem(
+                        icon = badgeIconForKey(badge.iconKey),
+                        name = badge.name,
+                        isUnlocked = badge.isUnlocked
+                    )
                 }
             }
         }
