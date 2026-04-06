@@ -59,11 +59,12 @@ All AI-assisted code was reviewed, modified as needed, and integrated by the tea
   our twice-weekly group meetings
 - Our [team reflections](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Team-Reflections) includes our perspective on the project term
 
+
 ## User Guide
 
-[TODO GETTING STARTED WIKI](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Getting-Started)
+[Getting Started](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Getting-Started)
 
-[TODO USAGE GUIDE WIKI](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Usage-Guide)
+[Usage Guide](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Usage-Guide)
 
 ## Design Documents
 - Our [database schema](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Database-Schema) shows a
