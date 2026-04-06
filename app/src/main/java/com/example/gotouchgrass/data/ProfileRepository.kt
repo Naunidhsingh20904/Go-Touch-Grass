@@ -1,5 +1,6 @@
 package com.example.gotouchgrass.data
 
+import com.example.gotouchgrass.domain.BadgeStatus
 import com.example.gotouchgrass.domain.FakeData
 import com.example.gotouchgrass.domain.LifetimeStats
 import com.example.gotouchgrass.domain.RecentActivity
@@ -27,6 +28,7 @@ interface ProfileRepository {
     suspend fun getTotalCapturedLandmarks(userId: String): Result<Int>
     suspend fun getRecentActivity(userId: String): Result<List<RecentActivity>>
     suspend fun getCompletedChallengesCount(userId: String): Result<Int>
+    suspend fun getBadges(userId: String): Result<List<BadgeStatus>>
 }
 
 /**
@@ -65,6 +67,9 @@ class SupabaseProfileRepository(
 
     override suspend fun getCompletedChallengesCount(userId: String): Result<Int> =
         repository.getCompletedChallengesCount(userId)
+
+    override suspend fun getBadges(userId: String): Result<List<BadgeStatus>> =
+        repository.getUserBadges(userId)
 }
 
 /**
@@ -132,5 +137,7 @@ class FakeProfileRepository : ProfileRepository {
     }
 
     override suspend fun getCompletedChallengesCount(userId: String): Result<Int> = runCatching { 0 }
+
+    override suspend fun getBadges(userId: String): Result<List<BadgeStatus>> = runCatching { emptyList() }
 }
 
