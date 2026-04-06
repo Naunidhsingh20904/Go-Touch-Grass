@@ -1,5 +1,6 @@
 package com.example.gotouchgrass.ui.map
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -88,9 +89,14 @@ class MapViewModel(
         val repo = repository ?: return
         val uid = currentUserId ?: return
         viewModelScope.launch {
-            repo.getFriendsApproxLocations(uid).onSuccess { markers ->
-                friendLocations = markers
-            }
+            repo.getFriendsApproxLocations(uid)
+                .onSuccess { markers ->
+                    Log.d("MapVM", "Friend locations loaded: ${markers.size} markers")
+                    friendLocations = markers
+                }
+                .onFailure { error ->
+                    Log.e("MapVM", "Failed to load friend locations", error)
+                }
         }
     }
 

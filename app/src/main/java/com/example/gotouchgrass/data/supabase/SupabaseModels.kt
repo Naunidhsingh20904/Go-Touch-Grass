@@ -171,7 +171,7 @@ data class VisitSessionRow(
     @SerialName("ended_at") val endedAt: String? = null,
     @SerialName("duration_sec") val durationSec: Long,
     @SerialName("confidence_score") val confidenceScore: Double = 1.0,
-    val source: String,
+    val source: String? = null,
     @SerialName("is_study_session") val isStudySession: Boolean = false
 )
 
@@ -254,3 +254,4 @@ data class FriendshipRow(
     @SerialName("user_id_b") val userIdB: Long,
     @SerialName("created_at") val createdAt: String
 )
+
