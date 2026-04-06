@@ -281,6 +281,11 @@ open class SupabaseDataSource(
         }
     }.decodeList()
 
+    suspend fun fetchAllVisitSessionsByUser(userId: Long): List<VisitSessionRow> =
+        supabaseClient.from(TABLE_VISIT_SESSIONS).select {
+            filter { eq("user_id", userId) }
+        }.decodeList()
+
     suspend fun insertVisitSession(row: VisitSessionInsert) {
         supabaseClient.from(TABLE_VISIT_SESSIONS).insert(row)
     }

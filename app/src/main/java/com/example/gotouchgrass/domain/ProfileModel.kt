@@ -36,5 +36,11 @@ class ProfileModel(
 
     suspend fun getTotalCapturedLandmarks(): Int =
         repository.getTotalCapturedLandmarks(currentUserId).getOrElse { 0 }
+
+    suspend fun getRecentActivity(): List<RecentActivity> =
+        repository.getRecentActivity(currentUserId).getOrNull() ?: emptyList()
+
+    suspend fun getCompletedChallengesCount(): Int =
+        repository.getCompletedChallengesCount(currentUserId).getOrElse { 0 }
 }
 

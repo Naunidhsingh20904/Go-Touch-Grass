@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -38,6 +39,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +61,8 @@ fun ProfileScreen(
     onSettingsClick: () -> Unit = {},
     onFindFriendsClick: () -> Unit = {}
 ) {
+    var showAllBadgesDialog by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -95,7 +102,10 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingMd))
 
         // Badges Section
-        BadgesSection(badges = viewModel.badges)
+        BadgesSection(
+            badges = viewModel.badges,
+            onViewAll = { showAllBadgesDialog = true }
+        )
 
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingMd))
 
@@ -108,6 +118,13 @@ fun ProfileScreen(
         FriendsSection(friendInitials = viewModel.friendInitials, onFindFriendsClick = onFindFriendsClick)
 
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingLg))
+    }
+
+    if (showAllBadgesDialog) {
+        AllBadgesDialog(
+            badges = viewModel.badges,
+            onDismiss = { showAllBadgesDialog = false }
+        )
     }
 }
 
@@ -307,13 +324,13 @@ private fun QuickStatsGrid(
             StatCard(
                 icon = Icons.Default.LocationOn,
                 value = zonesVisited,
-                label = "Zones Visited",
+                label = "Zones (Week)",
                 modifier = Modifier.weight(1f)
             )
             StatCard(
                 icon = Icons.Default.Star,
                 value = zonesOwned,
-                label = "Zones Owned",
+                label = "Landmarks",
                 modifier = Modifier.weight(1f)
             )
         }
@@ -324,7 +341,7 @@ private fun QuickStatsGrid(
             StatCard(
                 icon = Icons.Default.DateRange,
                 value = timeExplored,
-                label = "Time Explored",
+                label = "Time (Week)",
                 modifier = Modifier.weight(1f)
             )
             StatCard(
@@ -390,7 +407,8 @@ private val badgeIcons = listOf(
 
 @Composable
 private fun BadgesSection(
-    badges: List<ProfileViewModel.ProfileBadgeDisplay>
+    badges: List<ProfileViewModel.ProfileBadgeDisplay>,
+    onViewAll: () -> Unit = {}
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -422,12 +440,14 @@ private fun BadgesSection(
                     )
                 }
 
-                TextButton(onClick = { }) {
-                    Text(
-                        text = "View All >",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = ForestGreen
-                    )
+                if (badges.size > 6) {
+                    TextButton(onClick = onViewAll) {
+                        Text(
+                            text = "View All >",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = ForestGreen
+                        )
+                    }
                 }
             }
 
@@ -502,6 +522,67 @@ private fun BadgeItem(
 }
 
 @Composable
+private fun AllBadgesDialog(
+    badges: List<ProfileViewModel.ProfileBadgeDisplay>,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = GoldenYellow,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(GoTouchGrassDimens.SpacingSm))
+                Text(
+                    text = "All Badges",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+        },
+        text = {
+            if (badges.isEmpty()) {
+                Text(
+                    text = "No badges earned yet. Keep exploring to unlock achievements!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingMd)
+                ) {
+                    val rows = badges.chunked(3)
+                    rows.forEach { rowBadges ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            rowBadges.forEachIndexed { index, badge ->
+                                BadgeItem(
+                                    icon = badgeIcons.getOrElse(index) { Icons.Default.Star },
+                                    name = badge.name,
+                                    isUnlocked = badge.isUnlocked
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = ForestGreen)
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface
+    )
+}
+
+@Composable
 private fun RecentActivitySection(
     activities: List<ProfileViewModel.ActivityItemDisplay>
 ) {
@@ -532,13 +613,22 @@ private fun RecentActivitySection(
 
             Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingMd))
 
-            Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
-                activities.forEach { activity ->
-                    ActivityRow(
-                        name = activity.name,
-                        timeAgo = activity.timeAgo,
-                        xpText = activity.xpText
-                    )
+            if (activities.isEmpty()) {
+                Text(
+                    text = "No recent activity yet. Start exploring to earn XP!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = GoTouchGrassDimens.SpacingSm)
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingSm)) {
+                    activities.forEach { activity ->
+                        ActivityRow(
+                            name = activity.name,
+                            timeAgo = activity.timeAgo,
+                            xpText = activity.xpText
+                        )
+                    }
                 }
             }
         }
@@ -554,7 +644,7 @@ private fun ActivityRow(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(GoTouchGrassDimens.RadiusMedium),
-        color = SandLight
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
             modifier = Modifier.padding(GoTouchGrassDimens.SpacingMd),

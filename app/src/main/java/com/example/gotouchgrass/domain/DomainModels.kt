@@ -487,3 +487,9 @@ data class LeaderboardData(
     val isGoldRank: Boolean,
     val isCurrentUser: Boolean = false
 )
+
+data class RecentActivity(
+    val displayName: String,
+    val capturedAtIso: String,
+    val xpAwarded: Int
+)

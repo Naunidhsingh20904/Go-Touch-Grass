@@ -12,6 +12,11 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.launch
 
+private const val MILLIS_PER_MINUTE = 60_000L
+private const val MILLIS_PER_HOUR = 3_600_000L
+private const val MILLIS_PER_DAY = 86_400_000L
+private const val MILLIS_PER_WEEK = 604_800_000L
+
 private const val XP_PER_LEVEL = 1000
 
 /**
@@ -96,6 +101,8 @@ class ProfileViewModel(
                 val weeklySummary = model.getWeeklySummary()
                 val friends = model.getFriends()
                 val totalCaptured = model.getTotalCapturedLandmarks()
+                val completedChallenges = model.getCompletedChallengesCount()
+                val recentActivityData = model.getRecentActivity()
 
                 applyUser(user)
                 applyStreak(streakData)
@@ -103,6 +110,14 @@ class ProfileViewModel(
                 applyWeeklySummary(weeklySummary)
                 applyFriends(friends)
                 zonesOwned = totalCaptured.toString()
+                challengesDone = completedChallenges.toString()
+                recentActivity = recentActivityData.map { activity ->
+                    ActivityItemDisplay(
+                        name = activity.displayName,
+                        timeAgo = timeAgoFrom(activity.capturedAtIso),
+                        xpText = "+${activity.xpAwarded} XP"
+                    )
+                }
             }.onFailure { error ->
                 errorMessage = error.message ?: "Failed to load profile data"
             }
@@ -155,6 +170,23 @@ class ProfileViewModel(
         // extract the first character of each friend's display name as their initial
         friendInitials = friends.mapNotNull { friend ->
             friend.displayName.firstOrNull()?.toString()?.uppercase()
+        }
+    }
+
+    private fun timeAgoFrom(isoString: String): String {
+        return try {
+            val then = Instant.parse(isoString)
+            val now = Instant.now()
+            val diffMs = now.toEpochMilli() - then.toEpochMilli()
+            when {
+                diffMs < MILLIS_PER_MINUTE -> "Just now"
+                diffMs < MILLIS_PER_HOUR -> "${diffMs / MILLIS_PER_MINUTE}m ago"
+                diffMs < MILLIS_PER_DAY -> "${diffMs / MILLIS_PER_HOUR}h ago"
+                diffMs < MILLIS_PER_WEEK -> "${diffMs / MILLIS_PER_DAY}d ago"
+                else -> "${diffMs / MILLIS_PER_WEEK}w ago"
+            }
+        } catch (_: Exception) {
+            "Recently"
         }
     }
 
