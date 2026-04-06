@@ -33,5 +33,8 @@ class ProfileModel(
 
     suspend fun getFriends(): List<User> =
         repository.getFriends(currentUserId).getOrNull() ?: emptyList()
+
+    suspend fun getTotalCapturedLandmarks(): Int =
+        repository.getTotalCapturedLandmarks(currentUserId).getOrElse { 0 }
 }
 

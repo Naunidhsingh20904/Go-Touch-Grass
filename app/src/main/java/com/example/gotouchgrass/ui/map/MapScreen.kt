@@ -213,11 +213,6 @@ fun MapScreen(
 
     // ── Trip UI state ─────────────────────────────────────────────────────────
 
-    // After all Supabase writes complete, refresh header stats
-    LaunchedEffect(tripViewModel) {
-        tripViewModel?.onTripSaved = { viewModel?.refresh() }
-    }
-
     // Forward location updates into TripViewModel
     LaunchedEffect(effectiveUserLocation) {
         val loc = effectiveUserLocation ?: return@LaunchedEffect

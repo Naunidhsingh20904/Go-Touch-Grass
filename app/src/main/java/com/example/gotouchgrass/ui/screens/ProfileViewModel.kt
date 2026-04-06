@@ -95,12 +95,14 @@ class ProfileViewModel(
                 val streakData = model.getStreakData()
                 val weeklySummary = model.getWeeklySummary()
                 val friends = model.getFriends()
+                val totalCaptured = model.getTotalCapturedLandmarks()
 
                 applyUser(user)
                 applyStreak(streakData)
                 applyLifetimeStats(lifetimeStats)
                 applyWeeklySummary(weeklySummary)
                 applyFriends(friends)
+                zonesOwned = totalCaptured.toString()
             }.onFailure { error ->
                 errorMessage = error.message ?: "Failed to load profile data"
             }
