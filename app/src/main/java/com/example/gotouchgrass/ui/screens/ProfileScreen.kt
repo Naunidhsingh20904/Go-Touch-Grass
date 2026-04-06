@@ -324,13 +324,13 @@ private fun QuickStatsGrid(
             StatCard(
                 icon = Icons.Default.LocationOn,
                 value = zonesVisited,
-                label = "Zones Visited",
+                label = "Zones (Week)",
                 modifier = Modifier.weight(1f)
             )
             StatCard(
                 icon = Icons.Default.Star,
                 value = zonesOwned,
-                label = "Zones Owned",
+                label = "Landmarks",
                 modifier = Modifier.weight(1f)
             )
         }
@@ -341,7 +341,7 @@ private fun QuickStatsGrid(
             StatCard(
                 icon = Icons.Default.DateRange,
                 value = timeExplored,
-                label = "Time Explored",
+                label = "Time (Week)",
                 modifier = Modifier.weight(1f)
             )
             StatCard(
