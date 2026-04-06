@@ -262,6 +262,13 @@ open class SupabaseDataSource(
             limit(limit.toLong())
         }.decodeList()
 
+    suspend fun fetchUsersByIds(ids: List<Long>): List<UserRow> {
+        if (ids.isEmpty()) return emptyList()
+        return supabaseClient.from(TABLE_USERS).select {
+            filter { isIn("id", ids) }
+        }.decodeList()
+    }
+
     suspend fun fetchStreakByType(userId: Long, type: String): StreakRow? =
         supabaseClient.from(TABLE_STREAKS).select {
             filter {

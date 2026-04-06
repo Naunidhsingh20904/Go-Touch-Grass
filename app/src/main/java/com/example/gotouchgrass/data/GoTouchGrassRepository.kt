@@ -1,5 +1,6 @@
 package com.example.gotouchgrass.data
 
+import android.util.Log
 import com.example.gotouchgrass.data.supabase.ChallengeProgressRow
 import com.example.gotouchgrass.data.supabase.FriendRequestRow
 import com.example.gotouchgrass.data.supabase.LandmarkInsert
@@ -1035,20 +1036,30 @@ open class GoTouchGrassRepository(
     suspend fun getFriendsApproxLocations(authUserId: String): Result<List<FriendMapMarker>> =
         runCatching {
             val currentUser = dataSource.getUserRowByAuthId(authUserId)
-                ?: return@runCatching emptyList()
+            Log.d("FriendMap", "currentUser=$currentUser")
+            if (currentUser == null) return@runCatching emptyList()
+
             val friendIds = dataSource.getUserFriends(currentUser.id)
+            Log.d("FriendMap", "friendIds=$friendIds")
             if (friendIds.isEmpty()) return@runCatching emptyList()
 
-            val allUsers = dataSource.fetchLeaderboardUsers(1000)
-            val friendUsers = allUsers.filter { it.id in friendIds }
+            val friendUsers = dataSource.fetchUsersByIds(friendIds)
+            Log.d("FriendMap", "friendUsers=$friendUsers")
             val allZones = dataSource.fetchAllZones()
+            Log.d("FriendMap", "allZones count=${allZones.size}")
 
             val markers = mutableListOf<FriendMapMarker>()
             for (friend in friendUsers) {
-                val session = dataSource.fetchLatestZonedVisitSessionByUserId(friend.id) ?: continue
+                val session = dataSource.fetchLatestZonedVisitSessionByUserId(friend.id)
+                Log.d("FriendMap", "friend=${friend.displayName} session=$session")
+                if (session == null) continue
                 val zoneId = session.zoneId ?: continue
-                val zone = allZones.firstOrNull { it.id == zoneId } ?: continue
-                val centroid = zoneCentroid(zone.boundingBox) ?: continue
+                val zone = allZones.firstOrNull { it.id == zoneId }
+                Log.d("FriendMap", "zone=$zone")
+                if (zone == null) continue
+                val centroid = zoneCentroid(zone.boundingBox)
+                Log.d("FriendMap", "centroid=$centroid")
+                if (centroid == null) continue
                 val initials = friend.displayName.trim().split(" ")
                     .mapNotNull { it.firstOrNull()?.uppercaseChar() }
                     .take(2).joinToString("")
@@ -1066,11 +1077,20 @@ open class GoTouchGrassRepository(
             var sumLng = 0.0
             var count = 0
             for (item in array) {
-                val obj = item.jsonObject
-                val lat = obj["lat"]?.jsonPrimitive?.content?.toDoubleOrNull()
-                    ?: obj["latitude"]?.jsonPrimitive?.content?.toDoubleOrNull()
-                val lng = obj["lng"]?.jsonPrimitive?.content?.toDoubleOrNull()
-                    ?: obj["longitude"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                val lat: Double?
+                val lng: Double?
+                if (item is kotlinx.serialization.json.JsonArray) {
+                    // Format: [lat, lng]
+                    lat = item.getOrNull(0)?.jsonPrimitive?.content?.toDoubleOrNull()
+                    lng = item.getOrNull(1)?.jsonPrimitive?.content?.toDoubleOrNull()
+                } else {
+                    // Format: {"lat": ..., "lng": ...}
+                    val obj = item.jsonObject
+                    lat = obj["lat"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                        ?: obj["latitude"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                    lng = obj["lng"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                        ?: obj["longitude"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                }
                 if (lat != null && lng != null) {
                     sumLat += lat; sumLng += lng; count++
                 }
