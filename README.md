@@ -66,7 +66,7 @@ All AI-assisted code was reviewed, modified as needed, and integrated by the tea
 ## Design Documents
 - Our [database schema](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Database-Schema) shows a
   diagram of our tables and their key relationships (TODO UPLOAD UPDATED DIAGRAM)
-- Our [class diagrams](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Class-Diagram) shows a diagram of the main classes in our application (TODO make class diagram)
+- Our [class diagrams](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Class-Diagram) shows a diagram of the main classes in our application
 
 ## Grading Instructions
 
