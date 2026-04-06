@@ -514,6 +514,47 @@ open class GoTouchGrassRepository(
         getCollectedLandmarks(userId).getOrThrow().size
     }
 
+    suspend fun getRecentActivity(userId: String, limit: Int = 10): Result<List<com.example.gotouchgrass.domain.RecentActivity>> = runCatching {
+        val userRow = dataSource.getUserRowByAuthId(userId) ?: return@runCatching emptyList()
+        val captures = dataSource.fetchCapturesByUser(userRow.id)
+            .filter { !it.capturedAt.isNullOrBlank() }
+            .take(limit)
+
+        if (captures.isEmpty()) return@runCatching emptyList()
+
+        val landmarkIds = captures.mapNotNull { it.landmarkId }.distinct()
+        val landmarksById = if (landmarkIds.isNotEmpty())
+            dataSource.fetchLandmarksByIds(landmarkIds).associateBy { it.id }
+        else emptyMap()
+
+        captures.mapNotNull { capture ->
+            val capturedAt = capture.capturedAt ?: return@mapNotNull null
+            val landmark = capture.landmarkId?.let { landmarksById[it] }
+            val category = landmark?.category ?: "OTHER"
+            com.example.gotouchgrass.domain.RecentActivity(
+                displayName = categoryToActivityDisplayName(category),
+                capturedAtIso = capturedAt,
+                xpAwarded = capture.xpAwarded
+            )
+        }
+    }
+
+    private fun categoryToActivityDisplayName(category: String): String {
+        return when (category.uppercase()) {
+            "PARK" -> "Explored a Park"
+            "STUDY_SPOT" -> "Study Spot Captured"
+            "CAFE" -> "Visited a Café"
+            "FOOD" -> "Found a Food Spot"
+            "TRANSPORTATION" -> "Transit Point Found"
+            "EDUCATION" -> "Campus Discovery"
+            "GYM" -> "Gym Captured"
+            "LOUNGE" -> "Lounge Discovered"
+            "MURAL" -> "Mural Found"
+            "STATUE" -> "Statue Discovered"
+            else -> "Landmark Captured"
+        }
+    }
+
     // call this from real game events (zone capture, location visit, etc.)
     suspend fun recordChallengeProgress(
         userId: String, challengeId: Long, incrementBy: Double = 1.0

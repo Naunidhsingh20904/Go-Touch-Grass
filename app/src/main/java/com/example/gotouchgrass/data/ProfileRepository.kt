@@ -2,6 +2,7 @@ package com.example.gotouchgrass.data
 
 import com.example.gotouchgrass.domain.FakeData
 import com.example.gotouchgrass.domain.LifetimeStats
+import com.example.gotouchgrass.domain.RecentActivity
 import com.example.gotouchgrass.domain.StreakData
 import com.example.gotouchgrass.domain.StreakType
 import com.example.gotouchgrass.domain.User
@@ -24,6 +25,7 @@ interface ProfileRepository {
     suspend fun getWeeklySummary(userId: String): Result<WeeklySummary>
     suspend fun getFriends(userId: String): Result<List<User>>
     suspend fun getTotalCapturedLandmarks(userId: String): Result<Int>
+    suspend fun getRecentActivity(userId: String): Result<List<RecentActivity>>
 }
 
 /**
@@ -56,6 +58,9 @@ class SupabaseProfileRepository(
 
     override suspend fun getTotalCapturedLandmarks(userId: String): Result<Int> =
         repository.getTotalCapturedLandmarks(userId)
+
+    override suspend fun getRecentActivity(userId: String): Result<List<RecentActivity>> =
+        repository.getRecentActivity(userId)
 }
 
 /**
@@ -116,6 +121,10 @@ class FakeProfileRepository : ProfileRepository {
 
     override suspend fun getTotalCapturedLandmarks(userId: String): Result<Int> = runCatching {
         0
+    }
+
+    override suspend fun getRecentActivity(userId: String): Result<List<RecentActivity>> = runCatching {
+        emptyList()
     }
 }
 

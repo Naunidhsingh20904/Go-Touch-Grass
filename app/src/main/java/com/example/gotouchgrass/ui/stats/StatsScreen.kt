@@ -1,5 +1,6 @@
 package com.example.gotouchgrass.ui.stats
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,16 +12,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,12 +48,20 @@ import androidx.compose.foundation.verticalScroll
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
 
+enum class StatsPeriod(val label: String) {
+    THIS_WEEK("This week"),
+    ALL_TIME("All time")
+}
+
 @Composable
 fun StatsScreen(
     modifier: Modifier = Modifier,
     viewModel: StatsViewModel = viewModel(),
-    onViewCollectedOnMap: () -> Unit = {}
+    onViewCollectedOnMap: () -> Unit = {},
+    onViewAllFriends: () -> Unit = {}
 ) {
+    var selectedPeriod by remember { mutableStateOf(StatsPeriod.THIS_WEEK) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -53,20 +69,29 @@ fun StatsScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(GoTouchGrassDimens.SpacingMd)
     ) {
-        Topbar()
-        WeeklySummaryCard(viewModel)
+        Topbar(
+            selectedPeriod = selectedPeriod,
+            onPeriodChange = { selectedPeriod = it }
+        )
+        WeeklySummaryCard(viewModel, selectedPeriod)
         CurrentStreak(viewModel)
         LifetimeStatsCard(
             viewModel = viewModel,
             onViewCollectedOnMap = onViewCollectedOnMap
         )
-        GlobalLeaderboard(viewModel)
+        GlobalLeaderboard(viewModel, onViewAllFriends = onViewAllFriends)
         Spacer(modifier = Modifier.height(GoTouchGrassDimens.SpacingLg))
     }
 }
 
 @Composable
-fun Topbar(modifier: Modifier = Modifier) {
+fun Topbar(
+    modifier: Modifier = Modifier,
+    selectedPeriod: StatsPeriod = StatsPeriod.THIS_WEEK,
+    onPeriodChange: (StatsPeriod) -> Unit = {}
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -80,26 +105,88 @@ fun Topbar(modifier: Modifier = Modifier) {
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
         )
-        OutlinedButton(
-            onClick = { /*TODO*/ },
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.primary,
-                containerColor = Color.Transparent
-            )
-        ) {
-            Icon(
-                imageVector = Icons.Filled.DateRange,
-                contentDescription = "Calendar",
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("This week")
+        Box {
+            OutlinedButton(
+                onClick = { showMenu = true },
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    containerColor = Color.Transparent
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.DateRange,
+                    contentDescription = "Calendar",
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(selectedPeriod.label)
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowDown,
+                    contentDescription = "Expand",
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                StatsPeriod.entries.forEach { period ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = period.label,
+                                fontWeight = if (period == selectedPeriod) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        onClick = {
+                            onPeriodChange(period)
+                            showMenu = false
+                        }
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-fun WeeklySummaryCard(viewModel: StatsViewModel) {
+fun WeeklySummaryCard(
+    viewModel: StatsViewModel,
+    period: StatsPeriod = StatsPeriod.THIS_WEEK
+) {
+    val cardTitle = when (period) {
+        StatsPeriod.THIS_WEEK -> "Weekly Summary"
+        StatsPeriod.ALL_TIME -> "All Time Summary"
+    }
+
+    val stat1Value = when (period) {
+        StatsPeriod.THIS_WEEK -> viewModel.weeklySummary.timeOutside
+        StatsPeriod.ALL_TIME -> "${viewModel.lifetimeStats.totalDistanceKm.toInt()} km"
+    }
+    val stat1Label = when (period) {
+        StatsPeriod.THIS_WEEK -> "Time Outside"
+        StatsPeriod.ALL_TIME -> "Total Distance"
+    }
+
+    val stat2Value = when (period) {
+        StatsPeriod.THIS_WEEK -> viewModel.weeklySummary.zonesVisited.toString()
+        StatsPeriod.ALL_TIME -> viewModel.totalLandmarksCaptured.toString()
+    }
+    val stat2Label = when (period) {
+        StatsPeriod.THIS_WEEK -> "Zones Visited"
+        StatsPeriod.ALL_TIME -> "Landmarks"
+    }
+
+    val stat3Value = when (period) {
+        StatsPeriod.THIS_WEEK -> "+${viewModel.weeklySummary.xpEarned}"
+        StatsPeriod.ALL_TIME -> "+${viewModel.lifetimeStats.totalXp}"
+    }
+    val stat3Label = when (period) {
+        StatsPeriod.THIS_WEEK -> "XP Earned"
+        StatsPeriod.ALL_TIME -> "Total XP"
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -124,7 +211,7 @@ fun WeeklySummaryCard(viewModel: StatsViewModel) {
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Weekly Summary",
+                    text = cardTitle,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -139,12 +226,12 @@ fun WeeklySummaryCard(viewModel: StatsViewModel) {
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = viewModel.weeklySummary.timeOutside,
+                        text = stat1Value,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Time Outside",
+                        text = stat1Label,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -156,12 +243,12 @@ fun WeeklySummaryCard(viewModel: StatsViewModel) {
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = viewModel.weeklySummary.zonesVisited.toString(),
+                        text = stat2Value,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Zones Visited",
+                        text = stat2Label,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -173,13 +260,13 @@ fun WeeklySummaryCard(viewModel: StatsViewModel) {
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "+${viewModel.weeklySummary.xpEarned}",
+                        text = stat3Value,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF4CAF50)
                     )
                     Text(
-                        text = "XP Earned",
+                        text = stat3Label,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -187,81 +274,43 @@ fun WeeklySummaryCard(viewModel: StatsViewModel) {
                 }
             }
 
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.Bottom
+            if (period == StatsPeriod.THIS_WEEK) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val maxBarHeight = 60.dp
-                    viewModel.weeklySummary.dailyActivity.forEach { fraction ->
-                        Box(
-                            modifier = Modifier
-                                .width(32.dp)
-                                .height(maxBarHeight * fraction)
-                                .background(
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
-                                )
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        val maxBarHeight = 60.dp
+                        viewModel.weeklySummary.dailyActivity.forEach { fraction ->
+                            Box(
+                                modifier = Modifier
+                                    .width(32.dp)
+                                    .height(maxBarHeight * fraction)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
+                                    )
+                            )
+                        }
                     }
-                }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    Text(
-                        text = "Mon",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(32.dp),
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "Tue",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(32.dp),
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "Wed",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(32.dp),
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "Thu",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(32.dp),
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "Fri",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(32.dp),
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "Sat",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(32.dp),
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "Sun",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(32.dp),
-                        textAlign = TextAlign.Center
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun").forEach { day ->
+                            Text(
+                                text = day,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.width(32.dp),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -477,8 +526,9 @@ fun LifetimeStatsCard(
 
 @Composable
 fun GlobalLeaderboard(
-    viewModel: StatsViewModel,  // ← ADDED parameter
-    modifier: Modifier = Modifier
+    viewModel: StatsViewModel,
+    modifier: Modifier = Modifier,
+    onViewAllFriends: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -511,6 +561,7 @@ fun GlobalLeaderboard(
                 }
 
                 Row(
+                    modifier = Modifier.clickable(onClick = onViewAllFriends),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {

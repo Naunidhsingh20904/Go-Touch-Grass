@@ -323,6 +323,10 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
                                     onViewCollectedOnMap = {
                                         openCollectedOverlayOnMap = true
                                         currentDestination = AppDestinations.MAP
+                                    },
+                                    onViewAllFriends = {
+                                        showFriendsOnProfile = true
+                                        currentDestination = AppDestinations.PROFILE
                                     }
                                 )
 
