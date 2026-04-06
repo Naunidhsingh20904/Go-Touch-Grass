@@ -66,6 +66,10 @@ fun ProfileScreen(
     onFindFriendsClick: () -> Unit = {},
     onViewAllBadgesClick: () -> Unit = {}
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
+
     LaunchedEffect(viewModel.newlyUnlockedBadgeName) {
         if (viewModel.newlyUnlockedBadgeName != null) {
             delay(4000)

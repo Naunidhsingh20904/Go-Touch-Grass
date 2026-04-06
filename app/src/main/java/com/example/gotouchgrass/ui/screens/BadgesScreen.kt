@@ -53,9 +53,6 @@ import com.example.gotouchgrass.ui.theme.ForestGreen
 import com.example.gotouchgrass.ui.theme.ForestGreenDark
 import com.example.gotouchgrass.ui.theme.GoldenYellow
 import com.example.gotouchgrass.ui.theme.GoTouchGrassDimens
-import com.example.gotouchgrass.ui.theme.SandLight
-import com.example.gotouchgrass.ui.theme.SandMuted
-import com.example.gotouchgrass.ui.theme.TextMuted
 import com.example.gotouchgrass.ui.theme.WarmWhite
 
 private fun iconForKey(key: String): ImageVector = when (key) {
@@ -160,7 +157,7 @@ fun BadgesScreen(
                     Text(
                         text = "Progress",
                         style = MaterialTheme.typography.labelMedium,
-                        color = TextMuted
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "${(progressFraction * 100).toInt()}%",
@@ -176,7 +173,7 @@ fun BadgesScreen(
                         .height(8.dp)
                         .clip(RoundedCornerShape(4.dp)),
                     color = GoldenYellow,
-                    trackColor = SandMuted,
+                    trackColor = MaterialTheme.colorScheme.outlineVariant,
                     strokeCap = StrokeCap.Round
                 )
             }
@@ -205,7 +202,7 @@ private fun BadgeCard(badge: ProfileViewModel.ProfileBadgeDisplay) {
 
     Surface(
         shape = RoundedCornerShape(GoTouchGrassDimens.RadiusLarge),
-        color = if (badge.isUnlocked) WarmWhite else SandLight,
+        color = if (badge.isUnlocked) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
         shadowElevation = if (badge.isUnlocked) 3.dp else 0.dp,
         modifier = Modifier
             .fillMaxWidth()
@@ -223,14 +220,14 @@ private fun BadgeCard(badge: ProfileViewModel.ProfileBadgeDisplay) {
                         if (badge.isUnlocked)
                             Brush.radialGradient(listOf(GoldenYellow, ForestGreen))
                         else
-                            Brush.radialGradient(listOf(SandMuted, SandMuted))
+                            Brush.radialGradient(listOf(MaterialTheme.colorScheme.outlineVariant, MaterialTheme.colorScheme.outlineVariant))
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = badge.name,
-                    tint = if (badge.isUnlocked) WarmWhite else TextMuted,
+                    tint = if (badge.isUnlocked) WarmWhite else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(32.dp)
                 )
             }
@@ -240,7 +237,7 @@ private fun BadgeCard(badge: ProfileViewModel.ProfileBadgeDisplay) {
             Text(
                 text = badge.name,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = if (badge.isUnlocked) MaterialTheme.colorScheme.onSurface else TextMuted,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
 
@@ -249,7 +246,7 @@ private fun BadgeCard(badge: ProfileViewModel.ProfileBadgeDisplay) {
             Text(
                 text = badge.description,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (badge.isUnlocked) MaterialTheme.colorScheme.onSurfaceVariant else TextMuted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
 
@@ -257,12 +254,12 @@ private fun BadgeCard(badge: ProfileViewModel.ProfileBadgeDisplay) {
 
             Surface(
                 shape = RoundedCornerShape(100.dp),
-                color = if (badge.isUnlocked) ForestGreen.copy(alpha = 0.12f) else SandMuted
+                color = if (badge.isUnlocked) ForestGreen.copy(alpha = 0.12f) else MaterialTheme.colorScheme.outlineVariant
             ) {
                 Text(
                     text = if (badge.isUnlocked) "Unlocked" else "Locked",
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                    color = if (badge.isUnlocked) ForestGreen else TextMuted,
+                    color = if (badge.isUnlocked) ForestGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                 )
             }
