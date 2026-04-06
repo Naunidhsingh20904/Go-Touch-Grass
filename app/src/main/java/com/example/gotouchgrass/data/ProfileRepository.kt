@@ -23,6 +23,7 @@ interface ProfileRepository {
     suspend fun getStreakData(userId: String): Result<StreakData>
     suspend fun getWeeklySummary(userId: String): Result<WeeklySummary>
     suspend fun getFriends(userId: String): Result<List<User>>
+    suspend fun getTotalCapturedLandmarks(userId: String): Result<Int>
 }
 
 /**
@@ -52,6 +53,9 @@ class SupabaseProfileRepository(
 
     override suspend fun getFriends(userId: String): Result<List<User>> =
         repository.getFriends(userId)
+
+    override suspend fun getTotalCapturedLandmarks(userId: String): Result<Int> =
+        repository.getTotalCapturedLandmarks(userId)
 }
 
 /**
@@ -108,6 +112,10 @@ class FakeProfileRepository : ProfileRepository {
 
     override suspend fun getFriends(userId: String): Result<List<User>> = runCatching {
         FakeData.users.take(3).filter { it.id != userId }
+    }
+
+    override suspend fun getTotalCapturedLandmarks(userId: String): Result<Int> = runCatching {
+        0
     }
 }
 

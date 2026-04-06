@@ -209,6 +209,16 @@ fun GoTouchGrassApp(initialDarkMode: Boolean = false) {
             }
         }
 
+        // After all trip backend writes complete, immediately refresh all ViewModels so
+        // stats are up-to-date on whichever screen the user navigates to next.
+        LaunchedEffect(tripViewModel, mapViewModel, profileViewModel, statsViewModel) {
+            tripViewModel?.onTripSaved = {
+                mapViewModel?.refresh()
+                profileViewModel?.refresh()
+                statsViewModel.refresh()
+            }
+        }
+
         // Refresh data every time the user navigates to Stats or Profile
         LaunchedEffect(currentDestination) {
             when (currentDestination) {
