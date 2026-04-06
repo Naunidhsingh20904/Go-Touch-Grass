@@ -47,7 +47,7 @@ All AI-assisted code was reviewed, modified as needed, and integrated by the tea
 
 
 ## Releases
-[Most recent software and release notes](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Software-Release) (TODO)
+[Most recent software and release notes](https://git.uwaterloo.ca/t62smith1/group-2/-/wikis/Software-Release)
 
 ## Project Information
 
